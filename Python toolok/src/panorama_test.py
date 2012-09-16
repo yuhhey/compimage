@@ -1,0 +1,139 @@
+# -*- coding: utf-8 -*-
+
+# -*- coding: utf-8 -*-
+
+
+import unittest
+import inspect
+import hsi
+import panorama
+import random
+
+class kiegFunkTeszt(unittest.TestCase):
+    def addSuffixTest(self):
+        fullpath="/storage/Panorama/Lugu/Lugu_Hegye_3_8bit.pto"
+        suffix="_teljes"
+        result = panorama.addSuffix(fullpath, suffix)
+        e_result="/storage/Panorama/Lugu/Lugu_Hegye_3_8bit_teljes.pto"
+        self.assertEqual(result,
+                         e_result,
+                         "Fullpath test")
+
+        rejtett_fajl=".pistike"
+        result = panorama.addSuffix(rejtett_fajl, suffix)
+        e_result = ".pistike_teljes"
+        self.assertEqual(result,
+                         e_result,
+                         "dot file test")
+
+    def listKeysTest(self):
+        e_result=range(1,12)
+        adict = {11:2, 8:1, 9:123, 1:1, 5:5, 2:2, 10:1, 7:3, 3:3, 6:2, 4:4}
+
+        result = panorama.listKeys(adict)
+        self.assertEqual(result, e_result, 'range(1,12)')
+        adict[13]=1
+        result = panorama.listKeys(adict)
+        self.assertNotEqual(result, e_result, 'Extra 13')
+        
+class TeljesPanoramaTest(unittest.TestCase):
+    def setUp(self):
+        self.tp = panorama.TeljesPanorama()
+        self.tp.readPTO('/storage/Panorama/Borneo/Borneo_MtKinabaluUtmellol_1_8bit.pto')
+
+    def tearDown(self):
+        del self.tp
+        
+    def guessExtTest(self):
+        e_result = '.TIF'
+        result = self.tp.guessExt()
+        self.assertEqual(result,
+                         e_result,
+                         'guessExtTest: %s vs %s' % (result, e_result))
+
+    def updateSizeTest(self):
+        self.tp.analyzePanorama()
+
+        self.tp.updateSize(0, 0)
+        self.assertEqual(self.tp.sorok, 3, 'sorok - %d vs %d' % (self.tp.sorok, 3))
+        self.assertEqual(self.tp.oszlopok, 5, 'oszlopok - %d vs %d' % (self.tp.oszlopok, 5))
+
+        self.tp.updateSize(10, 0)
+        self.assertEqual(self.tp.sorok, 10, 'sorok - %d vs %d' % (self.tp.sorok, 10))
+        self.assertEqual(self.tp.oszlopok, 5, 'oszlopok - %d vs %d' % (self.tp.oszlopok, 5))
+
+        self.tp.updateSize(0,15)
+        self.assertEqual(self.tp.sorok, 3, 'sorok - %d vs %d' % (self.tp.sorok, 3))
+        self.assertEqual(self.tp.oszlopok, 15, 'oszlopok - %d vs %d' % (self.tp.oszlopok, 5))
+
+    def fillBucketTest(self):
+        self.tp.fillBuckets()
+        e_yawBucket = {-11.2607813519595: [1, 6], -5.47152753193876: [2, 7], 0.382195302610455: [3, 8], 11.9874309160965: [0, 5, 10], 6.1456880562248: [4, 9]}
+        e_pitchBucket = {0.112122265335545: [1, 2, 3, 4, 5], 3.9245062696787: [0], -3.54509678790692: [6, 7, 8, 9, 10]}
+
+        self.assertEqual(e_yawBucket, self.tp.yawBucket, 'yaw')
+        self.assertEqual(e_pitchBucket, self.tp.pitchBucket, 'pitch')
+
+        
+        
+class SzomszedTeszt(unittest.TestCase):
+    def setUp(self):
+        self.sz = Szomszed()
+        x_max = 10
+        y_max = 8
+        self.sz.setSize(x_max, y_max)
+        
+        self.o =[('Belső: ', 5, 5)
+                 ('Bal alsó: ', 1, 1),
+                 ('Bal felső: ', 1, y_max),
+                 ('Jobb felső: ', x_max, y_max),
+                 ('Jobb alsó: ', x_max, 1),
+                 ('Bal oldal: ', 1, y_max - 1),
+                 ('Jobb oldal: ', x_max, y_max - 1),
+                 ('Alsó oldal: ',x_max - 1, 1),
+                 ('Felső oldal: ',x_max - 1, y_max)]
+        
+    def checkLen(self, cimke, e_res):
+        res = len(self.sz)
+        self.assertEqual(e_res, res, cimke + ('e_res: %d, res: %d\n' % (e_res, res)))
+    def test_len(self):
+        
+        e_res_vector = [8, 3, 3, 3, 3, 5, 5, 5, 5]
+        
+        i = 0
+        for t in self.o:
+            self.sz.setOrigo(t[1], t[2])
+            self.checkLen(t[0], e_res_vector[i])
+            i += 1    
+    def check_iterator(self, cimke, e_res_vector):
+        
+        i = 0
+        for t in self.sz:
+            t1 = t + e_res_vector[i]
+            self.assertEqual(t, e_res_vector[i], cimke + ('t = (%d, %d), e_res = (%d, %d)' % t1))
+            i += 1
+    def test_iterator(self):
+        
+        print ''
+        
+def suite(testKiegFunk=False, testTeljesPanorama=False):
+
+    suite = unittest.TestSuite()
+    
+    if testKiegFunk:
+        suite.addTest(kiegFunkTeszt('addSuffixTest'))
+        suite.addTest(kiegFunkTeszt('listKeysTest'))
+
+    if testTeljesPanorama:
+        suite.addTest(TeljesPanoramaTest('guessExtTest'))
+        suite.addTest(TeljesPanoramaTest('updateSizeTest'))
+        suite.addTest(TeljesPanoramaTest('fillBucketTest'))
+    return suite
+
+
+if __name__ == '__main__':
+    runner = unittest.TextTestRunner(verbosity=2)
+    test_suite=suite(testKiegFunk = True,
+                     testTeljesPanorama = True)
+    
+    runner.run(test_suite)
