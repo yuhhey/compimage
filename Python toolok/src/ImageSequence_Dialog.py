@@ -3,7 +3,7 @@
 # simpledialog.py
 
 import wx
-import HDRList
+import ImageSequence
 import os
 
 class MyFrame(wx.Frame):
@@ -68,10 +68,10 @@ class MyFrame(wx.Frame):
         if '' == prefix:
             prefix = 'Set' + os.path.basename(indir)
         
-        HDRList.generateMoveScript(indir,
+        Parser.generateMoveScript(indir,
                                    outdir,
                                    prefix)
-        HDRList.generateHDRScript(indir,
+        Parser.generateHDRScript(indir,
                                   outdir,
                                   prefix)
         

@@ -44,4 +44,4 @@ def search_same(dir_to_check):
     store_result(dir_to_check, d)
     print_result(d)
 
-search_same('/storage/MM/Konyvek')
+search_same('/storage')

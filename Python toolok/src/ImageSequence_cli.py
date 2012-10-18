@@ -1,5 +1,5 @@
 import sys
-import HDRList
+import Parser
 import os.path
 
 
@@ -15,9 +15,9 @@ if 3 == len(sys.argv):
 else:
     prefix = 'Set' + sys.argv(3)
     
-HDRList.generateMoveScript(indir,
+Parser.generateMoveScript(indir,
                            outdir,
                            prefix)
-HDRList.generateHDRScript(indir,
+Parser.generateHDRScript(indir,
                           outdir,
                           prefix)

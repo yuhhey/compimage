@@ -54,29 +54,39 @@ torolheto_lista=[]
 
 d=dict()
 
-duplak_betolt("_storage")
+#duplak_betolt("/home/smb/workspace/Duplak irtása/_media_3868010f-6e0f-4b48-b6eb-bc3e69e567d1")
 
-duplak=0
-i=0
-ugras=1
-for i in d.keys():
-    d[i].sort()
-    if (len(d[i]) > 1) and (1 == ugras):
-        duplak+=1
-        print len(d[i])
-        for f in range(len(d[i])):
-            print '[%d] "%s"'% (f,d[i][f])
-        c=raw_input('Művelet - (n)ext, +(s)záz, (v)ége:')
-        if 's' == c:
-            ugras=100
-        elif 'v' == c:
-            break
-        else:
-            ugras=1
-    ugras = max(1, ugras - 1)
+duplak_betolt("/home/smb/workspace/Duplak irtása/_storage")
+
+def kerdez():
+    duplak=0
+    i=0
+    ugras=1
+    for i in d.keys():
+        d[i].sort()
+        if (len(d[i]) > 1) and (1 == ugras):
+            duplak+=1
+            print len(d[i])
+            for f in range(len(d[i])):
+                print '[%d] "%s"'% (f,d[i][f])
+            c=raw_input('Művelet - (n)ext, +(s)záz, (v)ége:')
+            if 's' == c:
+                ugras=100
+            elif 'v' == c:
+                break
+            else:
+                ugras=1
+        ugras = max(1, ugras - 1)
        
            
        
 
 
-print duplak
+#print duplak
+for i in d.keys():
+    d[i].sort()
+    if (len(d[i]) > 1):
+        print '# %s' % (d[i][0])
+        for f in range(1, len(d[i])):
+            print 'rm "%s"' % (d[i][f])
+                       
