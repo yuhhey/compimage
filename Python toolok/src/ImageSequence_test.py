@@ -184,12 +184,6 @@ class HelperFunctionsTest(unittest.TestCase):
         exp_datum = (datetime.datetime(2010, 11, 6, 13, 45, 21, 998750), datetime.datetime(2010, 11, 6, 13, 45, 22))
         self.assertEqual(datum, exp_datum, 'Reading data from %s, res=%s, exp_datum=%s' % (cr2_file, datum, exp_datum))
         
-    def test_datumFrom5DIIMetadata(self):
-        # 5DMkII CR2. It measures to the 100th sec accuracy
-        metadata = ImageSequence.readMetadata('/storage/Panorama/Harbin/HDR/IMG_7445.CR2')
-        datum = ImageSequence.timestampFromMetadata(metadata)
-        exp_datum = (datetime.datetime(2012, 1, 7, 16, 35, 35, 900000), datetime.datetime(2012, 1, 7, 16, 35, 36, 100000))
-        self.assertEqual(datum, exp_datum, '5DMkII datum read failed. res=%s, exp_datum=%s' % (datum, exp_datum))
     def test_findSequences(self):
         imgseq = ImageSequence.findSequences(testData.CR2_sourcepath, '.CR2')
         self.assertTrue(len(imgseq) > 0, 'ImageSequence.findSequence failed to find existing image sequences')

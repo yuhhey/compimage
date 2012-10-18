@@ -15,12 +15,7 @@ def timestampFromMetadata(metadata):
     """ Returns the original date and time from the image represented by metadata
         as a 'datetime.datetime' object """
     tag_datum=metadata['Exif.Photo.DateTimeOriginal']
-    datum = tag_datum.value
-    if 'Canon EOS 5D Mark II' == metadata['Exif.Image.Model'].value:
-        tag_szazadmp=metadata['Exif.Photo.SubSecTimeOriginal']
-        szazadmp=int(tag_szazadmp.value)*10000
-        datum=datum+datetime.timedelta(microseconds=szazadmp)
-        
+    datum = tag_datum.value    
     tag_exposure = metadata['Exif.Photo.ExposureTime']
     return (datum - datetime.timedelta(microseconds = floor(tag_exposure.value * 1000000)) , datum)
 
