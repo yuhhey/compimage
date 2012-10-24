@@ -5,29 +5,45 @@ import unittest
 import os
 import datetime
 import shutil
+import itertools
+
+run_all = False
 
 class testData:
-    CR2_sourcepath = '/storage/Kepek/HDR2/'
+    CR2_sourcepath_non_trailing_slash = '/storage/Kepek/HDR2'
+    CR2_sourcepath = CR2_sourcepath_non_trailing_slash + '/'
     CR2_sourcepath_massive='/storage/Kepek/HDR1/'
+    glob_sourcepath='/storage/Kepek/HDR1/IMG_00[23]?.CR2'
     CR2fl_1=('IMG_0536.CR2', 'IMG_0537.CR2', 'IMG_0537.CR2')
     NonImage=('A', 'B', 'C')
     outdir='/tmp/_test/'
-    rawExt = '.CR2'
+    rawExt = 'CR2'
     
 class errorMsg:
     NOFILE = 'No files found'
     NOIMGSEQ = 'No image sequence identified.'
     NONZEROLEN = 'Length of empty object is not 0'
 
-class HDRListErrorsTest(unittest.TestCase):
-    def test_wrongPath(self):
-        """ Test HDR identification """
-        path='/Path/Does/Not/Exist'
-        with self.assertRaises(TypeError) as e:
-            ImgSeq = ImageSequence.Parser()
-            ImgSeq.readDir(path)
-        the_exception = e.exception
-                
+
+class TimeStampCheckerTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.metadata=list()
+        for fn in testData.CR2fl_1:
+            cls.metadata.append(ImageSequence.readMetadata(os.path.join(testData.CR2_sourcepath, fn)))
+        cls.tsc = ImageSequence.TimeStampChecker(maxdiff = 5)
+        cls.ebc = ImageSequence.AEBChecker()
+            
+    def test_emptyTimeStampChecker(self):
+        adict = dict()
+        self.assertTrue(self.tsc(adict, self.metadata[0]), 'TimeStampChecker does not return True for an empty sequence')
+    
+    def test_emptyEBVChecker(self):
+        adict = dict()
+        self.assertTrue(self.ebc(adict, self.metadata[0]), 'AEBChecker does not return True for an empty sequence')
+# The rest of the operation is tested by other classes
+            
+
 class ParserTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -44,7 +60,7 @@ class ParserTest(unittest.TestCase):
     def test_creation(self):
         """ Make sure the constructor added the full path of all the image filenames
             and excluded all the non image files """
-        imgsec_list = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt)
+        imgsec_list = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt, 1)
         self.assertTrue(len(imgsec_list.file_l)>0, errorMsg.NOFILE)
         for f in testData.CR2fl_1:
             exp_res = os.path.join(testData.CR2_sourcepath, f)
@@ -59,79 +75,92 @@ class ParserTest(unittest.TestCase):
         """ Check whether the Parser.len()"""
         imgseq = ImageSequence.Parser()
         self.assertTrue(len(imgseq) == 0, errorMsg.NONZEROLEN)
-        imgseq = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt)
+        imgseq = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt, 1)
         self.assertTrue(len(imgseq) == 2, errorMsg.NOIMGSEQ)
 
     def test_filelist(self):
-        hdr_list = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt)
+        hdr_list = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt, 1)
         self.assertTrue(len(hdr_list) > 0, errorMsg.NOIMGSEQ)
         fl=hdr_list[0].filelist()
         self.assertTrue(3, len(fl))
     
-    @unittest.skip('Make UT in eclipse very fast')
+    def test_filelistWithGlob(self):
+        img_seqs = ImageSequence.findSequences(testData.glob_sourcepath, testData.rawExt, 1)
+        self.assertTrue(len(img_seqs) > 0, errorMsg.NOIMGSEQ)
+        
+    @unittest.skipIf(run_all == False, 'Massive')
     def test_analysis_massive(self):
         """ Check the analyzer with a huge set of real data """
-        hdr_list=ImageSequence.findSequences(testData.CR2_sourcepath_massive, testData.rawExt)
-        hibauzenet='Found %d HDR sequences' % len(hdr_list)
-    #        for hdr_seq in hdr_list.hdr_l:
-    #            for hdr in hdr_seq.seq_data:
-    #                print "    ",\
-    #                      hdr,\
-    #                      hdr_seq[hdr]['Exif.Photo.DateTimeOriginal'].value
-    #            print
-    # Kiírja a HDR sequencehez nem adott fájlokat.
-    #        f_l=list(hdr_list.file_l)
-    #        for image in hdr_list.file_l:
-    #            for hdr_seq in hdr_list.hdr_l:
-    #                if image in hdr_seq.seq_data:
-    #                    try:
-    #                        f_l.remove(image)
-    #                    except:
-    #                        pass
-    #        print
-    #        for i in f_l:
-    #            m = Parser.readMetadata(i)
-    #            datum = Parser.timestampFromMetadata(m)
-    #            print i, datum
-        self.assertEqual(len(hdr_list), 147, hibauzenet)
+        img_seq_list=ImageSequence.findSequences(testData.CR2_sourcepath_massive, testData.rawExt, maxdiff = 1)
+        hibauzenet='Found %d HDR sequences' % len(img_seq_list)
+        summa = 0
+        for i in range(len(img_seq_list)):
+            summa += len(img_seq_list[i])
+            print i, len(img_seq_list[i]), sorted(img_seq_list[i].filelist())
+        print "Sum = %d" % summa
+            
+        self.assertEqual(len(img_seq_list), 260, hibauzenet)
+    
+    @unittest.skipIf(run_all == False, 'To keep the test execution fast')
+    def test_maxdiff_tune(self):
+        maxdiff_list = [1, 5, 15]
+        exp_result = [260, 259, 253]
+        for md, r in itertools.izip(maxdiff_list, exp_result):
+            img_seq_list = ImageSequence.findSequences(testData.CR2_sourcepath_massive, testData.rawExt, md)
+            hibauzenet='Found %d HDR sequences in md=%d. run.' % (len(img_seq_list), md)
+            self.assertEqual(len(img_seq_list), r, hibauzenet)
+    
+    def test_readPattern(self):
+        img_seqs = ImageSequence.findSequences(testData.CR2_sourcepath_non_trailing_slash, testData.rawExt, 1)
+        self.assertTrue(len(img_seqs) > 0, 'test_readPatter: no image sequence identified')
+        
+         
+    def test_removeSequence(self):
+        """ Sequences can be removed from Parser objects."""
+        img_seqs = ImageSequence.findSequences(testData.glob_sourcepath, testData.rawExt, 1)
+        initial_len = len(img_seqs)
+        del img_seqs[0]
+        next_len = len(img_seqs)
+        self.assertTrue((initial_len - next_len) == 1,
+                        "del img_seqs[0] does not work. initial len=%d, next len=%d" %(initial_len, next_len) )
+        
+        img_seqs.readPattern(testData.glob_sourcepath, testData.rawExt)
+        img_seqs.searchSeq(maxdiff=1) # To rebuild the complete list
+        self.assertTrue(initial_len==len(img_seqs), "Rebuilding of sequence information failed")
+        del img_seqs[-1]
+        self.assertTrue((initial_len-1)==len(img_seqs), "Error with removing the last sequence")
+        
+        img_seqs = ImageSequence.findSequences(testData.glob_sourcepath, testData.rawExt, 1)
+        del img_seqs[1:-1]
+        self.assertTrue(2==len(img_seqs), "Error with removing range")
+        
+        img_seqs.readPattern(testData.glob_sourcepath, testData.rawExt)
+        img_seqs.searchSeq(maxdiff=1)
+        self.assertTrue(initial_len==len(img_seqs), "Rebuilding of sequence after slice delete failed")
+        
+    def test_searchSeq(self):
+        img_seqs = ImageSequence.Parser()
+        img_seqs.readPattern(testData.glob_sourcepath, 'CR2')
+        img_seqs.searchSeq(maxdiff=1)
+        nseqs = len(img_seqs)
+        self.assertTrue(nseqs>0, "Could not find sequences")
+        img_seqs.searchSeq(maxdiff=1)
+        nseqs_2nd = len(img_seqs)
+        self.assertTrue(nseqs==nseqs_2nd,
+                        "2nd searchSeq error: nseqs=%d, nseqs_2nd=%d" %(nseqs, nseqs_2nd))
+        
 
 class ImageSequenceTest(unittest.TestCase):
 
-
-    def setUp(self):
-        self.hdr_seq=ImageSequence.Sequence()
-        self.hdrfn_1=os.path.join(testData.CR2_sourcepath, testData.CR2fl_1[0])
-        self.hdrfn_2=os.path.join(testData.CR2_sourcepath, testData.CR2fl_1[1])
-        self.non_hdrfn='/storage/Kepek/kepek_eredeti/CR2/2010_01_08/IMG_4620.CR2'
-        
-    def test_check(self):
-        self.assertFalse(self.hdr_seq.check(self.hdrfn_1), 'Empty checkerlist case wrong')
-
-        self.hdr_seq.checkers.append(ImageSequence.timestampChecker)
-        self.assertTrue(self.hdr_seq.check(self.hdrfn_1),
-                        'Something wrong with checkers')
-        self.assertTrue(self.hdr_seq.check(self.hdrfn_2),
-                        'Failed to identify the 2nd image of the sequence')
-        # Checking file against an empty Parser is always successful, so we add one file
-        self.hdr_seq.add(self.hdrfn_1) 
-        self.assertFalse(self.hdr_seq.check(self.non_hdrfn),
-                         'Failed to ignore an image which is not in the sequence')
-
-    def test_add(self):
-        self.hdr_seq.add(self.hdrfn_1)
-        self.assertTrue(1==len(self.hdr_seq), 'Adding the initial image failed')
-
-        self.hdr_seq.add(self.hdrfn_2)
-        self.assertTrue(2==len(self.hdr_seq), 'Adding more image failed')
-
-    def _search_sequence(self, hdr_seq, path, filelist):
+    def __search_sequence(self, hdr_seq, path, filelist):
         for f in filelist:
             full_path=os.path.join(path, f)
             if hdr_seq.check(full_path):
                 hdr_seq.add(full_path)
 
-    def _populate_sequence(self):
-        self.hdr_seq.checkers.append(ImageSequence.timestampChecker)
+    def __prepare_seq_search(self):
+        tsc = ImageSequence.TimeStampChecker(maxdiff = 5)
+        self.hdr_seq.checkers.append(tsc)
         self.path = testData.CR2_sourcepath_massive
         self.filelist = ['IMG_0020.CR2',
                          'IMG_0021.CR2',
@@ -140,29 +169,73 @@ class ImageSequenceTest(unittest.TestCase):
                          'IMG_0032.CR2',
                          'IMG_0033.CR2']
         
+    def setUp(self):
+        self.hdr_seq=ImageSequence.Sequence()
+        self.hdrfn_1=os.path.join(testData.CR2_sourcepath, testData.CR2fl_1[0])
+        self.hdrfn_2=os.path.join(testData.CR2_sourcepath, testData.CR2fl_1[1])
+        self.non_hdrfn='/storage/Kepek/kepek_eredeti/CR2/2010_01_08/IMG_4620.CR2'
+        
+    def test_checkWithTimeStampChecker(self):
+        self.assertFalse(self.hdr_seq.check(self.hdrfn_1), 'Empty checkerlist case wrong')
+
+        tsc = ImageSequence.TimeStampChecker(maxdiff = 5)
+        self.hdr_seq.checkers.append(tsc)
+        self.assertTrue(self.hdr_seq.check(self.hdrfn_1),
+                        'Something wrong with checkers')
+        self.assertTrue(self.hdr_seq.check(self.hdrfn_2),
+                        'Failed to identify the 2nd image of the sequence')
+        # Checking file against an empty Parser is always successful, so we add one file
+        self.hdr_seq.add(self.hdrfn_1) 
+        self.assertFalse(self.hdr_seq.check(self.non_hdrfn),
+                         'Failed to ignore an image which is not in the sequence')
+        
+    def test_checkWithAEBChecker(self):
+        ebvc = ImageSequence.AEBChecker()
+        self.hdr_seq.checkers.append(ebvc)
+        self.hdr_seq.check(self.hdrfn_1)
+        # It is important to call all the checkers even if the image sequence is empty, because the checkers can object
+        # which might collect data from the images. Just like exposure bracket value checker doesn.
+        self.assertTrue(len(ebvc.ebvs) == 1, 'ImageSequence.checker does not call all the checker if it is empty')
+
+    def test_add(self):
+        self.hdr_seq.add(self.hdrfn_1)
+        self.assertTrue(1==len(self.hdr_seq), 'Adding the initial image failed')
+
+        self.hdr_seq.add(self.hdrfn_2)
+        self.assertTrue(2==len(self.hdr_seq), 'Adding more image failed')
+
+    def test_delete(self):
+        self.__prepare_seq_search()
+        self.__search_sequence(self.hdr_seq, self.path, self.filelist)
+        
+        orig_len = len(self.hdr_seq)
+        fl = self.hdr_seq.filelist()
+        del self.hdr_seq[fl[0]]
+        self.assertTrue((orig_len-len(self.hdr_seq)) == 1, 'ImageSequence delete failed')
+
     def test_timeStampSequenceIdentification(self):
-        self._populate_sequence()
+        self.__prepare_seq_search()
         self.runtest(self.hdr_seq, self.path, self.filelist)
 
     def runtest(self, hdrseq, path, filelist):
-        self._search_sequence(hdrseq, path, filelist)
-        print len(hdrseq)
+        self.__search_sequence(hdrseq, path, filelist)
         self.assertEqual(len(hdrseq), 3, 'Sequential - Could not identify an existingHDR sequence')
-
+        
         filelist[2] , filelist[3] = filelist[3] , filelist[2]
         hdrseq.seq_data.clear()
-        self._search_sequence(hdrseq, path, filelist)
-        print len(hdrseq)
+        self.__search_sequence(hdrseq, path, filelist)
         self.assertEqual(len(hdrseq), 3, 'Non sequential - Could not identify an existingHDR sequence')
 
     def test_keys(self):
-        self._populate_sequence()
-        self._search_sequence(self.hdr_seq, self.path, self.filelist)
+        self.__prepare_seq_search()
+        self.__search_sequence(self.hdr_seq, self.path, self.filelist)
         n = len(self.hdr_seq)
         self.assertEqual(n, 3, 'error with keys: len(keys)=%d' % n)
         
-    def test_AEBBracketValueSequenceIdentification(self):
-        self.hdr_seq.checkers.append(ImageSequence.AEBBracketValueChecker)
+    @unittest.skip('Future development')
+    def test_AEBBracketValueSequenceIdentification(self, param=0):
+        AEBC = ImageSequence.AEBChecker()
+        self.hdr_seq.checkers.append(AEBC)
         path = testData.CR2_sourcepath_massive
         filelist = ['IMG_6219.CR2',
                     'IMG_6220.CR2',
@@ -185,7 +258,7 @@ class HelperFunctionsTest(unittest.TestCase):
         self.assertEqual(datum, exp_datum, 'Reading data from %s, res=%s, exp_datum=%s' % (cr2_file, datum, exp_datum))
         
     def test_findSequences(self):
-        imgseq = ImageSequence.findSequences(testData.CR2_sourcepath, '.CR2')
+        imgseq = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt, 1)
         self.assertTrue(len(imgseq) > 0, 'ImageSequence.findSequence failed to find existing image sequences')
     
     def test_findSequencesNoSequence(self):
@@ -195,24 +268,24 @@ class HelperFunctionsTest(unittest.TestCase):
             return
         self.assertTrue(1 == 2, 'ImageSequence.findSequence found sequence that does not exist')
         
+    def _checkScriptExists(self, dir, prefix):
+        path = os.path.join(dir, prefix+'.sh')
+        return os.path.exists(path)
+    
+    @unittest.skipIf(run_all == False, 'Massive')
     def test_sequenceWorkflow(self):
-        CR2_dir = "/storage/Kepek/kepek_eredeti/CR2/2012_10_16"
-        CR2_seq_dir = "/storage/Panorama/Chengdu/2012_10_16_CR2"
-        cr2_imgseq = ImageSequence.findSequences(CR2_dir, '.CR2')
-        symlink_script = ImageSequence.ScriptWriter(CR2_seq_dir, '2012_10_16_symlink')
-        symlink_script.createLinkScript(cr2_imgseq, owndir = False)
-        symlink_script.save()
-        # Itt kell megtörténnie a CR2->TIF converziónak.
-        TIF_dir = "/storage/Panorama/Chengdu/2012_10_16_TIF"
-        tif_imgseq = ImageSequence.findSequences(TIF_dir) # '.TIF' is a default parameter
-        separate_sets_script = ImageSequence.ScriptWriter(TIF_dir, '2012_10_16_separate_sets')
-        separate_sets_script.createSeparateSetScript(tif_imgseq)
-        separate_sets_script.save()
+        indir = "/storage/Kepek/kepek_eredeti/CR2/2012_10_16"
+        outdir = "/storage/Panorama/tmp/"
+        ImageSequence.SequenceWorkflow(indir, outdir, 1)
         
-        HDR_dir = "/storage/Panorama/Chengdu"
-        gen_HDR_script = ImageSequence.ScriptWriter(HDR_dir) # '.TIF is a default parameter
-        gen_HDR_script.createHDRGenScript(HDR_dir)
-        gen_HDR_script.save()
+        fnl = ImageSequence.FileNameLogic(indir, outdir)
+        
+        self.assertTrue(self._checkScriptExists(outdir, "2012_10_16_symlink"), 'Symlink script')
+#        os.remove(os.path.join(outdir, fnl.symlinkScript()))
+        self.assertTrue(self._checkScriptExists(outdir, '2012_10_16_sets'), 'Set separation script')
+#        os.remove(os.path.join(outdir, fnl.setSeparationScript()))
+        self.assertTrue(self._checkScriptExists(outdir, '2012_10_16_HDRGen'), 'HDR generation script')
+#        os.remove(os.path.join(outdir, fnl.HDRGenScript()))
                 
 class ShellScriptWriterTest(unittest.TestCase):
     def setUp(self):
@@ -242,7 +315,7 @@ class ShellScriptWriterTest(unittest.TestCase):
                          self.shellScriptWriter)
 
 
-class ScriptWriterTest(unittest.TestCase):
+class SequenceScriptWriterTest(unittest.TestCase):
     fileSequences = [('a'),
                      ('b', 'c'),
                      ('d', 'e', 'g'),
@@ -252,11 +325,11 @@ class ScriptWriterTest(unittest.TestCase):
            
     @classmethod
     def setUpClass(cls):
-        cls.imgseqParser = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt)
+        cls.imgseqParser = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt, 1)
         assert len(cls.imgseqParser) > 0, 'No image sequences found.'
     
     def setUp(self):
-        self.script = ImageSequence.ScriptWriter(self.dir, self.prefix)
+        self.script = ImageSequence.SequenceScriptWriter(self.dir, self.prefix)
     
     def tearDown(self):
         try: # More than one test_ function creates script, but not all.
@@ -282,10 +355,11 @@ class ScriptWriterTest(unittest.TestCase):
         self.assertTrue(statinfo.st_size > 0, 'Empty file')
 
     def test_createHDRGeneScript(self):
-        imgseqParser = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt)
+        imgseqParser = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt, 1)
         self.script.createHDRGenScript(imgseqParser)
         self.script.save()
         self._basicScriptCheck()
+        self.assertTrue(False, "Az HDR scriptben a CR2 Pathtol veszi a fájlneveket, de TIF kiterjesztéssel")
         
 
     def test_dumpLinkSeqNoOwnDir(self):
@@ -303,49 +377,48 @@ class ScriptWriterTest(unittest.TestCase):
         self.script.save()
         self._basicScriptCheck()
 
-#def suite(testHDRList=False,
-#          testImageSequence=False,
-#          testHelperFunctions=False,
-#          testShellScriptWriter=False,
-#          testScriptWriter=False):
-#    
-#    suite=unittest.TestSuite()
-#
-#    if testHDRList:
-#        suite.addTest(ParserTest('test_len'))
-#        suite.addTest(ParserTest('test_creation'))
-#        # suite.addTest(ParserTest('test_analysis_massive'))
-#        suite.addTest(ParserTest('test_filelist'))
-#        suite.addTest(HDRListErrorsTest('test_wrongPath'))
-#        suite.addTest(ParserTest('test_createHDRGeneScript'))
-#
-#    if testImageSequence:
-#        suite.addTest(ImageSequenceTest('test_add'))
-#        suite.addTest(ImageSequenceTest('test_check'))
-#        suite.addTest(ImageSequenceTest('test_list'))
-#        suite.addTest(ImageSequenceTest('test_timeStampSequenceIdentification'))
-#        suite.addTest(ImageSequenceTest('test_AEBBracketValueSequenceIdentification'))
-#        suite.addTest(ImageSequenceTest('test_keys'))
-#        
-#    if testHelperFunctions:
-#        suite.addTest(HelperFunctionsTest('test_readMetadata'))
-#        suite.addTest(HelperFunctionsTest('test_datumFromMetadata'))
-#        suite.addTest(HelperFunctionsTest('test_generateHDR'))
-#        suite.addTest(HelperFunctionsTest('test_AlignImageStackCommand'))
-#        suite.addTest(HelperFunctionsTest('test_enfuseCommand'))
-#        
-#    if testShellScriptWriter:
-#        suite.addTest(ShellScriptWriterTest('test_startCondition'))
-#        suite.addTest(ShellScriptWriterTest('test_endCondition'))
-#        suite.addTest(ShellScriptWriterTest('test_addCommand'))
-#    
-#    if testScriptWriter:
-#        suite.addTest(ScriptWriterTest('test_genOutputFn'))
-#        suite.addTest(ScriptWriterTest('test_createHDRGeneScript'))
-#        
-#    return suite
-#
-#if __name__ == '__main__':
-#    runner =unittest.TextTestRunner(verbosity=0)
-#    test_suite = suite(testScriptWriter=True)
-#    runner.run(test_suite)
+def suite(testHDRList=False,
+          testImageSequence=False,
+          testHelperFunctions=False,
+          testShellScriptWriter=False,
+          testScriptWriter=False):
+    
+    suite=unittest.TestSuite()
+
+    if testHDRList:
+        suite.addTest(ParserTest('test_len'))
+        suite.addTest(ParserTest('test_creation'))
+        # suite.addTest(ParserTest('test_analysis_massive'))
+        suite.addTest(ParserTest('test_filelist'))
+        suite.addTest(ParserTest('test_createHDRGeneScript'))
+
+    if testImageSequence:
+        suite.addTest(ImageSequenceTest('test_add'))
+        suite.addTest(ImageSequenceTest('test_checkWithTimeStampCheck'))
+        suite.addTest(ImageSequenceTest('test_list'))
+        suite.addTest(ImageSequenceTest('test_timeStampSequenceIdentification'))
+        suite.addTest(ImageSequenceTest('test_AEBBracketValueSequenceIdentification'))
+        suite.addTest(ImageSequenceTest('test_keys'))
+        
+    if testHelperFunctions:
+        suite.addTest(HelperFunctionsTest('test_readMetadata'))
+        suite.addTest(HelperFunctionsTest('test_datumFromMetadata'))
+        suite.addTest(HelperFunctionsTest('test_generateHDR'))
+        suite.addTest(HelperFunctionsTest('test_AlignImageStackCommand'))
+        suite.addTest(HelperFunctionsTest('test_enfuseCommand'))
+        
+    if testShellScriptWriter:
+        suite.addTest(ShellScriptWriterTest('test_startCondition'))
+        suite.addTest(ShellScriptWriterTest('test_endCondition'))
+        suite.addTest(ShellScriptWriterTest('test_addCommand'))
+    
+    if testScriptWriter:
+        suite.addTest(SequenceScriptWriterTest('test_createHDRGeneScript'))
+        
+    suite.addTest(TimeStampCheckerTest('test_emptyTimeStampChecker'))
+    return suite
+
+if __name__ == '__main__':
+    runner =unittest.TextTestRunner(verbosity=0)
+    test_suite = suite(testScriptWriter=True)
+    runner.run(test_suite)
