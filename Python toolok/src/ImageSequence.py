@@ -26,9 +26,17 @@ def timestampFromMetadata(metadata):
 
 def readThumbNailFromCR2(filename):
     md = readMetadata(filename)
-    tn = md.exif_thumbnail()
+    tn = md.previews[1]
     im = Image.open(StringIO.StringIO(tn.data))
-    return im
+    r = md['Exif.Image.Orientation'].value
+    
+    if r == 8:
+        im = im.transpose(Image.ROTATE_90)
+    elif r == 3:
+        im = im.transpose(Image.ROTATE_180)
+    elif r == 6:
+        im = im.transpose(Image.ROTATE_270)
+    return im, md
 
 def SequenceWorkflow(indir, outdir, maxdiff):
     
@@ -98,8 +106,8 @@ class TimeStampChecker:
         maxtimediff = datetime.timedelta(seconds=self.maxdiff)
         datum_pair = timestampFromMetadata(new_metadata)
         datumshot = datum_pair[0]
-        for i in adict.keys():
-            datum_from_seq = adict[i][Sequence.TIMESTAMP]
+        for k in adict.keys():
+            datum_from_seq = adict[k][Sequence.TIMESTAMP]
             datum_from_seq_saved = datum_from_seq[1]
             if (abs(datumshot - datum_from_seq_saved) < maxtimediff):
                 return True
@@ -166,8 +174,10 @@ class Sequence:
 
         return True  
 
-    def filelist(self):
-        return self.seq_data.keys()
+    def filelist(self, basenameonly = False):
+        if basenameonly:
+            return [os.path.basename(f) for f in self.seq_data.keys()]
+        else: return self.seq_data.keys()
 
 class Parser:
     tif_ext = ['TIF', 'TIFF', 'tif', 'tiff']
@@ -226,7 +236,7 @@ class Parser:
     def searchSeq(self, maxdiff):
         def addCheckers(seq, tsc, ebvc):
             seq.checkers.append(tsc)
-            seq.checkers.append(ebvc)
+            #seq.checkers.append(ebvc)
             
         
         if self.hdr_l > 0:

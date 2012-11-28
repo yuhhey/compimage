@@ -105,8 +105,9 @@ Latest Revision: Andrea Gavana @ 13 Dec 2005, 22.00 CET
 import wx
 import os
 import time
-
+import glob
 import thread
+import ImageSequence as IS
 
 try:
 
@@ -182,8 +183,8 @@ THUMB_HORIZONTAL = wx.HORIZONTAL
 THUMB_VERTICAL = wx.VERTICAL
 
 # Image File Name Extensions: Am I Missing Some Extensions Here?
-extensions = [".jpeg", ".jpg", ".bmp", ".png", ".ico", ".tiff", ".ani", ".cur", ".gif",
-              ".iff", ".icon", ".pcx", ".tif", ".xpm", ".xbm", ".mpeg", ".mpg", ".mov"]
+extensions = [".jpeg", ".jpg", ".JPG", ".bmp", ".png", ".ico", ".tiff", ".ani", ".cur", ".gif",
+              ".iff", ".icon", ".pcx", ".tif", ".xpm", ".xbm", ".mpeg", ".mpg", ".mov", ".CR2", ".cr2"]
 
 # ThumbnailCtrl Events:
 # wxEVT_THUMBNAILS_SEL_CHANGED: Event Fired When You Change Thumb Selection
@@ -269,6 +270,9 @@ class Thumb:
         self._bitmap = wx.EmptyBitmap(-1, -1)
         self._image = wx.EmptyImage(-1, -1)
         self._rotation = 0
+        self._shutter = 0.
+        self._exposurebiasvalue = 0
+        
 
 
     def SetCaption(self, caption=""):
@@ -514,8 +518,8 @@ class ThumbnailCtrl(wx.Panel):
                    "GetItemCount", "GetThumbWidth", "GetThumbHeight", "GetThumbBorder",
                    "ShowFileNames", "SetPopupMenu", "GetPopupMenu", "SetGlobalPopupMenu",
                    "GetGlobalPopupMenu", "SetSelectionColour", "GetSelectionColour",
-                   "EnableDragging", "SetThumbSize", "GetThumbSize", "ShowDir",
-                   "GetShowDir", "SetSelection", "GetSelection", "SetZoomFactor",
+                   "EnableDragging", "SetThumbSize", "GetThumbSize", "ShowDir", "ShowGlob",
+                   "ShowListOfFiles", "GetShowDir", "SetSelection", "GetSelection", "SetZoomFactor",
                    "GetZoomFactor", "SetCaptionFont", "GetCaptionFont", "GetItemIndex",
                    "InsertItem", "RemoveItemAt", "IsSelected", "Rotate", "ZoomIn", "ZoomOut",
                    "EnableToolTips", "GetThumbInfo"]
@@ -629,7 +633,7 @@ class ScrolledThumbnail(wx.ScrolledWindow):
         
         wx.ScrolledWindow.__init__(self, parent, id, pos, size)
 
-        self.SetThumbSize(96, 80)
+        self.SetThumbSize(192, 192)
         self._tOutline = thumboutline
         self._filter = thumbfilter
         self._selected = -1
@@ -657,7 +661,7 @@ class ScrolledThumbnail(wx.ScrolledWindow):
         self._parent = parent
         
         self._selectioncolour = wx.SystemSettings_GetColour(wx.SYS_COLOUR_HIGHLIGHT)
-        self.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_LISTBOX))
+#        self.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_LISTBOX))
         
         self.ShowFileNames(True)
 
@@ -852,10 +856,13 @@ class ScrolledThumbnail(wx.ScrolledWindow):
         thumbinfo = None
         
         if thumb >= 0:
-            thumbinfo = "Name: " + self._items[thumb].GetFileName() + "\n" \
-                        "Size: " + self._items[thumb].GetFileSize() + "\n" \
-                        "Modified: " + self._items[thumb].GetCreationDate() + "\n" \
-                        "Thumb: " + str(self.GetThumbSize()[0:2])
+            
+            t = self._items[thumb]
+            thumbinfo = "Name: " + t.GetFileName() + "\n" \
+                        "Size: " + t.GetFileSize() + "\n" \
+                        "Orig date: " + t.GetCreationDate() + "\n" \
+                        "Shutter: " + str(t._shutter) + " sec \n" \
+                        "Exp Bias: " + str(t._exposurebiasvalue)
 
         return thumbinfo
     
@@ -863,14 +870,14 @@ class ScrolledThumbnail(wx.ScrolledWindow):
     def SetThumbSize(self, width, height, border=6):
         """ Sets The Thumb Size As Width, Height And Border. """
         
-        if width > 350 or height > 280:
-            return
+#        if width > 350 or height > 280:
+#            return
         
         self._tWidth = width 
         self._tHeight = height
         self._tBorder = border
-        self.SetScrollRate((self._tWidth + self._tBorder)/4,
-                           (self._tHeight + self._tBorder)/4)
+        self.SetScrollRate((self._tWidth + self._tBorder) / 3,
+                           (self._tHeight + self._tBorder) / 3)
         self.SetSizeHints(self._tWidth + self._tBorder*2 + 16,
                           self._tHeight + self._tBorder*2 + 8)
 
@@ -932,10 +939,13 @@ class ScrolledThumbnail(wx.ScrolledWindow):
             thread.exit()
             return
         
-        pil = Image.open(newfile)
+        if (os.path.splitext(newfile)[1] in ['.CR2', '.cr2']):
+            pil, md = IS.readThumbNailFromCR2(newfile)
+        else: pil = Image.open(newfile)
+        
         originalsize = pil.size
         
-        pil.thumbnail((300, 240))
+        pil.thumbnail((1500, 1200))
         img = wx.EmptyImage(pil.size[0], pil.size[1])
 
         img.SetData(pil.convert("RGB").tostring())
@@ -943,9 +953,45 @@ class ScrolledThumbnail(wx.ScrolledWindow):
             self._items[imagecount]._threadedimage = img
             self._items[imagecount]._originalsize = originalsize
             self._items[imagecount]._bitmap = img
+            self._items[imagecount]._shutter = md['Exif.Photo.ExposureTime'].value
+            self._items[imagecount]._exposurebiasvalue = md['Exif.Photo.ExposureBiasValue'].value
+            self._items[imagecount]._lastmod = str(md['Exif.Photo.DateTimeOriginal'].value)
         except:
             return
+
+
+    def ShowListOfFiles(self, dir, filter, filenames):
+        if filter >= 0:
+            self._filter = filter
+        self._isrunning = False
+    # update items
+        self._items = []
+        self._dir = dir
+        myfiles = []
+        for files in filenames:
+            caption = self._showfilenames and [files][0] or [""][0]
+            fullfile = opj(self._dir + "/" + files)
+            myfiles.append(fullfile)
+            stats = os.stat(fullfile)
+            size = stats[6]
+            if size < 1000:
+                size = str(size) + " bytes"
+            else:
+                size = str(int(round(size / 1000.0))) + " Kb"
+            lastmod = time.strftime(TIME_FMT, time.localtime(stats[8]))
+            if self._filter & THUMB_FILTER_IMAGES:
+                self._items.append(Thumb(self, dir, files, caption, size, lastmod))
         
+        items = self._items[:]
+        self._items.sort(CmpThumb)
+        newfiles = SortFiles(items, self._items, myfiles)
+        self._locked = [0] * len(newfiles)
+        self._isrunning = True
+        thread.start_new_thread(self.EventGen1, (newfiles, ))
+        wx.MilliSleep(20)
+        self._selectedarray = []
+        self.UpdateProp()
+        self.Refresh()
 
     def ShowDir(self, dir, filter=THUMB_FILTER_IMAGES):
         """ Shows Thumbnails For A Particular Folder. """
@@ -954,51 +1000,17 @@ class ScrolledThumbnail(wx.ScrolledWindow):
         filenames = self.ListDirectory(self._dir, extensions)
         self.SetCaption(self._dir)
         self._parent.RecreateComboBox(dir)
-        if filter >= 0:
-            self._filter = filter
-       
-        self._isrunning = False
-
-
+        self.ShowListOfFiles(dir, filter, filenames)
         
-        # update items
-        self._items = []
-
+    def ShowGlob(self, pattern, filter=THUMB_FILTER_IMAGES):
         
-        myfiles = []
-
-        for files in filenames:
-
-            caption = (self._showfilenames and [files] or [""])[0]
-            fullfile = opj(self._dir + "/" + files)
-            myfiles.append(fullfile)
-            stats = os.stat(fullfile)
-            size = stats[6]
-            
-            if size < 1000:
-                size = str(size) + " bytes"
-            else:
-                size = str(int(round(size/1000.0))) + " Kb"
-
-            lastmod = time.strftime(TIME_FMT, time.localtime(stats[8]))
-            
-            if self._filter & THUMB_FILTER_IMAGES:
-                self._items.append(Thumb(self, dir, files, caption, size, lastmod))
-
-        items = self._items[:]
-        self._items.sort(CmpThumb)
-
-        newfiles = SortFiles(items, self._items, myfiles)
-        self._locked = [0]*len(newfiles)
-
-        self._isrunning = True
+        abs_pattern = os.path.abspath(pattern)
+        self._dir = os.path.dirname(abs_pattern)
+        filenames = [os.path.normcase(os.path.basename(f)) for f in glob.glob(abs_pattern)]
+        self.SetCaption(self._dir)
+        self.ShowListOfFiles(dir, filter, filenames)
         
-        thread.start_new_thread(self.EventGen1, (newfiles,))
-        wx.MilliSleep(20)
-
-        self._selectedarray = []
-        self.UpdateProp()
-        self.Refresh()
+          
 
 
     def GetShowDir(self):
@@ -1299,7 +1311,7 @@ class ScrolledThumbnail(wx.ScrolledWindow):
         y = self._tBorder/2
 
         # background
-        dc.SetPen(wx.Pen(wx.BLACK, 0, wx.TRANSPARENT))
+        dc.SetPen(wx.Pen(wx.WHITE, 0, wx.TRANSPARENT))
         dc.SetBrush(wx.Brush(self.GetBackgroundColour(), wx.SOLID))
         dc.DrawRectangle(0, 0, bmp.GetWidth(), bmp.GetHeight())
         
@@ -1327,7 +1339,7 @@ class ScrolledThumbnail(wx.ScrolledWindow):
         # outline
         if self._tOutline != THUMB_OUTLINE_NONE and (self._tOutlineNotSelected or self.IsSelected(index)):
         
-            dc.SetPen(wx.Pen((self.IsSelected(index) and [colour] or [wx.LIGHT_GREY])[0],
+            dc.SetPen(wx.Pen((self.IsSelected(index) and [colour] or [wx.Colour(50,50,50)])[0],
                              0, wx.SOLID))       
             dc.SetBrush(wx.Brush(wx.BLACK, wx.TRANSPARENT))
         
@@ -1365,7 +1377,7 @@ class ScrolledThumbnail(wx.ScrolledWindow):
                 dc.SetBrush(wx.Brush(colour, wx.SOLID))
                 recth = self._tTextHeight + 4
                 dc.DrawRectangle(tx, ty, textWidth, recth)
-                dc.SetTextForeground(wx.WHITE)
+                dc.SetTextForeground(wx.BLACK)
             
             tx = x + (self._tWidth - sw)/2
             ty = y + self._tHeight + (self._tTextHeight - sh)/2
@@ -1386,7 +1398,6 @@ class ScrolledThumbnail(wx.ScrolledWindow):
 
         dc.SetPen(wx.Pen(wx.BLACK, 0, wx.TRANSPARENT))
         dc.SetBrush(wx.Brush(self.GetBackgroundColour(), wx.SOLID))
-        
         # items
         row = -1
         for ii in xrange(len(self._items)):
