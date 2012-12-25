@@ -1,7 +1,6 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import ImageSequence
-import unittest
 import os
 import datetime
 import shutil
@@ -10,11 +9,11 @@ import itertools
 run_all = False
 
 class testData:
-    CR2_sourcepath_non_trailing_slash = '/storage/Kepek/HDR2'
+    CR2_sourcepath_non_trailing_slash = './test_images'
     CR2_sourcepath = CR2_sourcepath_non_trailing_slash + '/'
-    CR2_sourcepath_massive='/storage/Kepek/HDR1/'
-    glob_sourcepath='/storage/Kepek/HDR1/IMG_00[23]?.CR2'
-    CR2fl_1=('IMG_0536.CR2', 'IMG_0537.CR2', 'IMG_0537.CR2')
+    CR2_sourcepath_massive=CR2_sourcepath
+    glob_sourcepath=CR2_sourcepath+'IMG_302[567].CR2'
+    CR2fl_1=('IMG_3028.CR2', 'IMG_3029.CR2', 'IMG_3030.CR2')
     NonImage=('A', 'B', 'C')
     outdir='/tmp/_test/'
     rawExt = 'CR2'
@@ -36,13 +35,13 @@ class TimeStampCheckerTest(unittest.TestCase):
             
     def test_emptyTimeStampChecker(self):
         adict = dict()
-        self.assertTrue(self.tsc(adict, self.metadata[0]), 'TimeStampChecker does not return True for an empty sequence')
+        self.assertTrue(self.tsc(adict, self.metadata[0]),
+                        'TimeStampChecker does not return True for an empty sequence')
     
     def test_emptyEBVChecker(self):
         adict = dict()
-        self.assertTrue(self.ebc(adict, self.metadata[0]), 'AEBChecker does not return True for an empty sequence')
-# The rest of the operation is tested by other classes
-            
+        self.assertTrue(self.ebc(adict, self.metadata[0]),
+                        'AEBChecker does not return True for an empty sequence')
 
 class ParserTest(unittest.TestCase):
     @classmethod
@@ -323,20 +322,14 @@ class SequenceScriptWriterTest(unittest.TestCase):
     dir = '/tmp'
     prefix = 'ScriptWriterUT'
            
-    @classmethod
-    def setUpClass(cls):
-        cls.imgseqParser = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt, 1)
-        assert len(cls.imgseqParser) > 0, 'No image sequences found.'
+#    @classmethod
+#    def setUpClass(cls):
+#        cls.imgseqParser = ImageSequence.findSequences(testData.CR2_sourcepath, testData.rawExt, 1)
+#        assert len(cls.imgseqParser) > 0, 'No image sequences found.'
     
     def setUp(self):
         self.script = ImageSequence.SequenceScriptWriter(self.dir, self.prefix)
     
-    def tearDown(self):
-        try: # More than one test_ function creates script, but not all.
-            os.remove(self.expScriptName())
-        except OSError:
-            print '%s does not exist.' % self.expScriptName()
-            pass
                 
     def test_genIndexedFn(self):
         fn = self.script.genIndexedFn(self.script.fullprefix, 11, 'tif')
@@ -377,48 +370,30 @@ class SequenceScriptWriterTest(unittest.TestCase):
         self.script.save()
         self._basicScriptCheck()
 
-def suite(testHDRList=False,
-          testImageSequence=False,
-          testHelperFunctions=False,
-          testShellScriptWriter=False,
-          testScriptWriter=False):
-    
-    suite=unittest.TestSuite()
 
-    if testHDRList:
-        suite.addTest(ParserTest('test_len'))
-        suite.addTest(ParserTest('test_creation'))
-        # suite.addTest(ParserTest('test_analysis_massive'))
-        suite.addTest(ParserTest('test_filelist'))
-        suite.addTest(ParserTest('test_createHDRGeneScript'))
+class WritePolicyTest(unittest.TestCase):
+    def setUp(self):
+        self.collection='tmp'
+        self.raw_ext = 'CR2'
+        self.img_ext = 'TIF'
+        self.policy=ImageSequence.WritePolicy(self.collection,
+                                              self.raw_ext, 
+                                              self.img_ext)
+        
+    def test_scriptNames(self):
+        symlink_script_name = self.policy.symlinkScriptName()
+        exp_res = self.collection+'_symlink.sh'
+        self.assertEqual(symlink_script_name, exp_res, 'symlink script name')
+        
+        hdr_script_name = self.policy.hdrScriptName()
+        exp_res = self.collection+'_HDRgen.sh'
+        self.assertEqual(hdr_script_name, exp_res, 'hdr script name')
 
-    if testImageSequence:
-        suite.addTest(ImageSequenceTest('test_add'))
-        suite.addTest(ImageSequenceTest('test_checkWithTimeStampCheck'))
-        suite.addTest(ImageSequenceTest('test_list'))
-        suite.addTest(ImageSequenceTest('test_timeStampSequenceIdentification'))
-        suite.addTest(ImageSequenceTest('test_AEBBracketValueSequenceIdentification'))
-        suite.addTest(ImageSequenceTest('test_keys'))
-        
-    if testHelperFunctions:
-        suite.addTest(HelperFunctionsTest('test_readMetadata'))
-        suite.addTest(HelperFunctionsTest('test_datumFromMetadata'))
-        suite.addTest(HelperFunctionsTest('test_generateHDR'))
-        suite.addTest(HelperFunctionsTest('test_AlignImageStackCommand'))
-        suite.addTest(HelperFunctionsTest('test_enfuseCommand'))
-        
-    if testShellScriptWriter:
-        suite.addTest(ShellScriptWriterTest('test_startCondition'))
-        suite.addTest(ShellScriptWriterTest('test_endCondition'))
-        suite.addTest(ShellScriptWriterTest('test_addCommand'))
-    
-    if testScriptWriter:
-        suite.addTest(SequenceScriptWriterTest('test_createHDRGeneScript'))
-        
-    suite.addTest(TimeStampCheckerTest('test_emptyTimeStampChecker'))
-    return suite
+    def test_Dirs(self):
+        raw_dir = self.policy.rawDir()
+        exp_res = self.collection+'_'+self.raw_ext
+        self.assertEqual(raw_dir, exp_res, 'raw directory name')
 
-if __name__ == '__main__':
-    runner =unittest.TextTestRunner(verbosity=0)
-    test_suite = suite(testScriptWriter=True)
-    runner.run(test_suite)
+        img_dir = self.policy.imgDir()
+        exp_res = self.collection+'_'+self.img_ext
+        self.assertEqual(img_dir, exp_res, 'img directory name')

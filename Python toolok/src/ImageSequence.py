@@ -23,7 +23,6 @@ def timestampFromMetadata(metadata):
     tag_exposure = metadata['Exif.Photo.ExposureTime']
     return (datum - datetime.timedelta(microseconds = floor(tag_exposure.value * 1000000)) , datum)
 
-
 def readThumbNailFromCR2(filename):
     md = readMetadata(filename)
     tn = md.previews[1]
@@ -41,15 +40,15 @@ def readThumbNailFromCR2(filename):
 def SequenceWorkflow(indir, outdir, maxdiff):
     
         fnl = FileNameLogic(indir, outdir)
-        CR2_dir = fnl.CR2_dir()
-        CR2_seq_dir = fnl.CR2_dir()
+        CR2_dir = fnl.RAW_dir()
+        CR2_seq_dir = fnl.RAW_dir()
         script_prefix = fnl.prefix()
         cr2_imgseq = findSequences(indir, 'CR2', maxdiff)
         symlink_script = SequenceScriptWriter(outdir, fnl.symlinkPrefix())
         symlink_script.createLinkScript(cr2_imgseq, owndir = False)
         symlink_script.save()
         # Itt kell megtörténnie a CR2->TIF converziónak.
-        TIF_dir = fnl.TIF_dir()
+        TIF_dir = fnl.Image_dir()
         tif_imgseq = findSequences(TIF_dir, 'TIF', maxdiff) # '.TIF' is a default parameter
         separate_sets_script = SequenceScriptWriter(outdir, fnl.setSeparationPrefix())
         separate_sets_script.createLinkScript(tif_imgseq, owndir = True)
@@ -70,19 +69,19 @@ class FileNameLogic:
             os.mkdir(d)
         return d
 
-    def CR2_dir(self):
+    def RAW_dir(self):
         return self._dirCranch('_CR2')
     
-    def TIF_dir(self):
+    def Image_dir(self):
         return self._dirCranch('_TIF')
     
-    def prefix(self):
+    def HDR_prefix(self):
         return os.path.basename(self.in_dir)
     
     def symlinkPrefix(self):
         return self.prefix()+"_symlink"
     
-    def symlinkScript(self):
+    def symlinkScriptName(self):
         return self.symlinkPrefix() + '.sh'
     
     def setSeparationPrefix(self):
@@ -94,7 +93,7 @@ class FileNameLogic:
     def HDRGenPrefix(self):
         return self.prefix()+"_HDRGen"
     
-    def HDRGenScript(self):
+    def HDRGenScriptName(self):
         return self.HDRGenPrefix() + '.sh'
 
 class TimeStampChecker:
@@ -116,7 +115,6 @@ class TimeStampChecker:
 class AEBChecker:
     def __init__(self):
         self.ebvs = list()
-        pass
     
     def __call__(self, imgsec, new_metadata):
         
@@ -314,11 +312,6 @@ def findSequences(pattern, filetype, maxdiff):
     imgseq.readPattern(pattern, filetype)
     imgseq.searchSeq(maxdiff)
     return imgseq
-
-      
-#def hdrFilename(prefix, index):
-#    fn = prefix + '.tif'
-#    return fn
     
 
 

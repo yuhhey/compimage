@@ -1,5 +1,5 @@
 import sys
-import Parser
+import ImageSequence
 import os.path
 
 
@@ -13,11 +13,11 @@ outdir = os.path.abspath(sys.argv[2])
 if 3 == len(sys.argv):
     prefix = os.path.basename(indir)
 else:
-    prefix = 'Set' + sys.argv(3)
+    prefix = 'Set' + sys.argv[3]
     
-Parser.generateMoveScript(indir,
+ImageSequence.generateMoveScript(indir,
                            outdir,
                            prefix)
-Parser.generateHDRScript(indir,
+ImageSequence.generateHDRScript(indir,
                           outdir,
                           prefix)

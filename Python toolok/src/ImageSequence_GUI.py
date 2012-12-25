@@ -8,7 +8,7 @@ import ThumbnailCtrl as TC
 import os
 import re
 
-import echo
+#import echo
 
 
 class SequenceThumbs:
@@ -138,7 +138,7 @@ class MainWindow(wx.Frame):
         
         if len(self.cr2_imgseqs) == 0:
             return
-        indir = self.indirinput.GetValue()
+
         seq = self.cr2_imgseqs[self.active_seqidx]
         seq_fl = seq.filelist(basenameonly=True)
                         
@@ -156,6 +156,7 @@ class MainWindow(wx.Frame):
                 
         self.dirTC._scrolled.ScrollToSelected()
         self.dirTC._scrolled.Refresh()
+        indir = self.indirinput.GetValue()
         self.seqTC.ShowListOfFiles(indir, 1, seq_fl)
         
         
@@ -205,6 +206,14 @@ class MainWindow(wx.Frame):
         self.dirTC.ShowDir(indir, 1)
 
         self.ResetSeqDisplay()
+        seqScriptWriter = ImageSequence.SequenceScriptWriter('/home/smb/tmp', 'probaHDR')
+        seqScriptWriter.createLinkScript(self.cr2_imgseqs, False)
+        seqScriptWriter.save()
+        seqScriptWriter.createHDRGenScript(self.cr2_imgseqs)
+        seqScriptWriter.save()
+        for i, s in enumerate(self.cr2_imgseqs):
+            print s.filelist()
+            
 
 
     def OnMaxDiffChanged(self,e):
@@ -216,7 +225,7 @@ class MainWindow(wx.Frame):
         self.maxdiffSpinner.Enable(True)
         
 
-echo.echo_class(MainWindow)
+#echo.echo_class(MainWindow)
 #echo.echo_class(TC.ScrolledThumbnail)
 
 class MyApp(wx.App):
