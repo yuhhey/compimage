@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # simpledialog.py
 
-import wx
+masszázs heng
 import ImageSequence
 import ThumbnailCtrl as TC
 import os
