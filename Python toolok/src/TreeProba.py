@@ -21,37 +21,48 @@ class ResultEvent(wx.PyEvent):
         self.SetEventType(EVT_RESULT_ID)
         self.data = data
 
-# Thread class that executes processing
-class WorkerThread(TH.Thread):
-    """Worker Thread Class."""
-    def __init__(self, notify_window, tree, itemID):
-        """Init Worker Thread Class."""
-        TH.Thread.__init__(self)
+
+class Command:
+    def __init__(self, notify_window):
         self._notify_window = notify_window
         self._want_abort = 0
+    
+    def Finished(self,data):
+        wx.PostEvent(self._notify_window, data)
+        
+    
+    def abort(self):    
+        self._want_abort = 1
+        
+        
+    def abortWanted(self):
+        return self._want_abort != 0
+        
+        
+class HDRCommand(Command):
+    def __init__(self, _notify_window, tree, itemID):
+        Command.__init__(self, _notify_window)
         self.tree = tree
         self.itemID = itemID
-        
+        self.imgs_processed = 0
         # Imagelist for progress icons on HDR nodes 
         self.il = wx.ImageList(16,16)
         self.tree.AssignImageList(self.il)
-        self.questionidx = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_OTHER, (16,16)))
+        self.questidx = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_OTHER, (16,16)))
         self.readyidx = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_OTHER, (16,16)))
         self.abortidx = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_CROSS_MARK, wx.ART_OTHER, (16,16)))
-        # This starts the thread running on creation, but you could
-        # also make the GUI thread responsible for calling this
-        self.start()
-
-    def run(self):
-        """Run Worker Thread."""
-        self.processItem(self.itemID)
+        
+    
+    def __call__(self):
+        self.processItem(self.itemID)    
+        
     
     def processItem(self, itemID):
         """Recursive processing of HDR sets"""
         data = self.tree.GetPyData(itemID)[0]
         if isinstance(data, CI.CompositeImageCollector):
             parentID = self.tree.GetItemParent(itemID)
-            self.tree.SetItemImage(itemID, self.questionidx,wx.TreeItemIcon_Normal)
+            self.tree.SetItemImage(itemID, self.questidx,wx.TreeItemIcon_Normal)
             path = self.tree.GetPyData(parentID)[0]
             hdr_gen = CI.HDRGenerator()
             hdr_gen.setParams(os.path.dirname(path), '.tiff', self.tree.GetItemText(itemID))
@@ -59,6 +70,7 @@ class WorkerThread(TH.Thread):
             self._notify_window.button.Enable()
             hdr_gen(ci)
             self.tree.SetItemImage(itemID, self.readyidx,wx.TreeItemIcon_Normal)
+            self.imgs_processed = self.imgs_processed + 1
         else:
             # Egyelőre feltesszük, hogy direktori
             (child, cookie) = self.tree.GetFirstChild(itemID)
@@ -72,29 +84,59 @@ class WorkerThread(TH.Thread):
         # Here's where the result would be returned (this is an
         # example fixed result of the number 10, but it could be
         # any Python object)
-        if self._want_abort:
-            # Use a result of None to acknowledge the abort (of
-            # course you can use whatever you'd like or even
-            # a separate event type)
-            wx.PostEvent(self._notify_window, ResultEvent(None))
-            return
+        wx.PostEvent(self._notify_window, ResultEvent(self.imgs_processed))
         
-        wx.PostEvent(self._notify_window, ResultEvent(10))
+        
+class WorkerThread(TH.Thread):
+    """Worker Thread Class."""
+    def __init__(self, cmd):
+        """Init Worker Thread Class."""
+        TH.Thread.__init__(self)
+        self._cmd = cmd
+        # This starts the thread running on creation, but you could
+        # also make the GUI thread responsible for calling this
+        self.start()
 
+
+    def run(self):
+        """Run Worker Thread."""
+        self._cmd()
+        
+        
     def abort(self):
-        """abort worker thread."""
-        # Method for use by main thread to signal an abort
-        self._want_abort = 1
+        self._cmd.abort()
+    
+    
+class Config(object):
+    def __init__(self, name):
+        self.maxdiff = 7
+        self.CR2_dirs = []
+        self.img_dir = ""
+        self.name = name
+        
+    def display(self, tree, parentID):
+        
+        configItemID = tree.AppendItem(parentID, self.name)
+        img_dir = 'Image output dir: %s' % self.img_dir
+        tree.AppendItem(configItemID, img_dir)
+        maxdiff = 'maxdiff: %d sec' % self.maxdiff
+        tree.AppendItem(configItemID, maxdiff)
+        CR2_dirID = tree.AppendItem(configItemID, 'CR2 dirs')
+        for d in self.CR2_dirs:
+            tree.AppendItem(CR2_dirID, d)
+        
+        
 
 
 class MyFrame(wx.Frame):
+    '''Main policy object of the application'''
     def __init__(self, *args, **kwds):
         # this is just setup boilerplate
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
         wx.Frame.__init__(self, *args, **kwds)
 
         # our tree object, self.tree
-        self.tree = wx.TreeCtrl(self, -1, style=wx.TR_DEFAULT_STYLE|wx.TR_EDIT_LABELS|wx.TR_LINES_AT_ROOT, size = wx.Size(200, 500))
+        self.tree = wx.TreeCtrl(self, -1, style=wx.TR_HAS_BUTTONS|wx.TR_EDIT_LABELS|wx.TR_LINES_AT_ROOT, size = wx.Size(200,500))
         self.button = wx.Button(self, -1, label = 'Abort')
 
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -109,6 +151,7 @@ class MyFrame(wx.Frame):
         # register the self.onExpand function to be called
         wx.EVT_TREE_ITEM_EXPANDING(self.tree, self.tree.GetId(), self.onExpand)
         wx.EVT_TREE_ITEM_RIGHT_CLICK(self.tree, self.tree.GetId(), self.onRightClick)
+        wx.EVT_TREE_END_LABEL_EDIT(self.tree, self.tree.GetId(), self.onLabelEdited)
         self.button.Bind(wx.EVT_BUTTON, self.onAbortPress)
         
         # Set up event handler for any worker thread results
@@ -119,13 +162,31 @@ class MyFrame(wx.Frame):
         # store the worker thread later here.
         self.worker = None
                 
-                
-    def onRightClick(self, event):
+
+    def GetCheckedItem(self, event):
         itemID = event.GetItem()
         if not itemID.IsOk():
             itemID = self.tree.GetSelection()
+        return itemID
+
+
+    def onLabelEdited(self,event):
+        print event
+        itemID = self.GetCheckedItem(event)
+        rootID = self.tree.GetRootItem()
         
-        self.worker = WorkerThread(self, self.tree, itemID)
+        if itemID == rootID:
+            path = event.GetLabel()
+            if os.path.isdir(path):
+                wx.CallAfter(self.rebuildTree, path)
+            else:
+                event.Veto()
+      
+
+    def onRightClick(self, event):
+        itemID = self.GetCheckedItem(event)
+        
+        self.worker = WorkerThread(HDRCommand(self, self.tree, itemID))
         
 
     def onExpand(self, event):
@@ -135,9 +196,7 @@ class MyFrame(wx.Frame):
         is then marked as expanded.'''
 
         # get the wxID of the entry to expand and check it's validity
-        itemID = event.GetItem()
-        if not itemID.IsOk():
-            itemID = self.tree.GetSelection()
+        itemID = self.GetCheckedItem(event)
 
         # only build that tree if not previously expanded
         old_pydata = self.tree.GetPyData(itemID)
@@ -151,11 +210,18 @@ class MyFrame(wx.Frame):
     def onResult(self, event):
         self.button.Disable()
         self.button.SetLabel('Abort')
+        print '%d images processed' % event.data
         
     
     def onAbortPress(self, event):
         self.worker.abort()
         self.button.SetLabel('Aborting...')
+        
+        
+    def rebuildTree(self, rootdir):
+        self.tree.DeleteAllItems()
+        self.buildTree(rootdir)
+
 
     def buildTree(self, rootdir):
         '''Add a new root element and then its children'''
@@ -178,6 +244,7 @@ class MyFrame(wx.Frame):
         excludeDirs=["c:\\System Volume Information","/System Volume Information"]
 
         # retrieve the associated absolute path of the parent
+        d = self.tree.GetPyData(parentID)
         parentDir = self.tree.GetPyData(parentID)[0]
 
 
@@ -193,7 +260,7 @@ class MyFrame(wx.Frame):
                 # associate the full child path with its tree entry
                 self.tree.SetPyData(childID, (child_path, False))
                 
-                cr2_p = os.path.join(child_path, '*.tiff')
+                cr2_p = os.path.join(child_path, '*.CR2')
                 CR2s = glob.glob(cr2_p)
         
                 for img in CR2s:
@@ -209,7 +276,10 @@ class MyFrame(wx.Frame):
                 newParent = child
                 newParentID = childID
                 newParentPath = child_path
-                newsubdirs = dircache.listdir(newParentPath)
+                try:
+                    newsubdirs = dircache.listdir(newParentPath)
+                except OSError, msg:
+                    print '%s: raised exception:%s' %(newParentPath, msg)
                 newsubdirs.sort()
                 for grandchild in newsubdirs:
                     grandchild_path = os.path.join(newParentPath,grandchild)
@@ -217,7 +287,7 @@ class MyFrame(wx.Frame):
                         grandchildID = self.tree.AppendItem(newParentID, grandchild)
                         self.tree.SetPyData(grandchildID, (grandchild_path,False))
 
-        cr2_p = os.path.join(parentDir, '*.tiff')
+        cr2_p = os.path.join(parentDir, '*.CR2')
         CR2s = glob.glob(cr2_p)
         hdrcollector = CI.CollectHDRStrategy()
         hdrs, sic = hdrcollector.parseFileList(CR2s)
@@ -233,7 +303,7 @@ class MyFrame(wx.Frame):
 if __name__ == "__main__":
     app = wx.PySimpleApp(0)
     wx.InitAllImageHandlers()
-    frame = MyFrame(None, -1, "", size=wx.Size(450, 350))
+    frame = MyFrame(None, -1, "Composite Image GUI", size=wx.Size(450, 350))
     app.SetTopWindow(frame)
     frame.Show()
     app.MainLoop()
