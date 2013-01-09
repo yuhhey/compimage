@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 # simpledialog.py
 
-masszázs heng
 import ImageSequence
 import ThumbnailCtrl as TC
 import os
 import re
+import wx
 
 #import echo
 
@@ -235,5 +235,5 @@ class MyApp(wx.App):
         frame.Centre()
         return True
 
-app = MyApp(0)
+app = MyApp()
 app.MainLoop()

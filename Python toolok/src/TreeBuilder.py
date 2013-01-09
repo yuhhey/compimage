@@ -10,6 +10,9 @@ class Expander(object):
         self.tree = treectrl
         self.itemID = itemID
         self.tree.SetPyData(itemID, self)
+        
+    def isExpanded(self):
+        raise NotImplementedError
                             
     def expand(self, *ars, **kwargs):
         raise NotImplementedError
@@ -24,16 +27,23 @@ class DirectoryExpander(Expander):
             itemID = treectrl.AddRoot(path)
         
         treectrl.SetItemHasChildren(itemID)
-            
+        self.expanded = False
         Expander.__init__(self,treectrl, itemID)
+        
+    def isExpanded(self):
+        return self.expanded
         
     def expand(self):
 
+        if self.isExpanded():
+            return
+        
         for i in os.listdir(self.path):
             fullpath = os.path.join(self.path, i)
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, i)
                 DirectoryExpander(self.tree, fullpath, child)
+        self.expanded = True
                 
 class TreeCtrlFrame(wx.Frame):
     def __init__(self, parent, id, title, rootdir):
@@ -52,7 +62,9 @@ class TreeCtrlFrame(wx.Frame):
         
     def onItemExpand(self, event):
         item = event.GetItem()
-        self.tree.GetPyData(item).expand()
+        data = self.tree.GetPyData(item)
+        if not data.isExpanded():
+            data.expand()
 
 
 class TestExpandersApp(wx.App):
