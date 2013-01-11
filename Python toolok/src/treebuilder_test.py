@@ -41,3 +41,16 @@ class TreeBuildTest(unittest.TestCase):
         
         cc = treectrl.AppendItem.call_count
         self.assertEqual(cc, exp_cc, "AppendItem call count is %d instead of %d" % (cc, exp_cc))
+        
+    
+    def test_config(self):
+        hdr_config = mock.MagicMock()
+        treectrl = mock.MagicMock()
+        itemID = mock.MagicMock()
+        
+        hdrcb = TreeBuilder.HDRConfigExpander(treectrl, itemID, hdr_config)
+        
+        hdrcb.expand()
+        
+        cc = treectrl.AppendItem.call_count
+        self.assertTrue(cc > 0, 'HDR config expander shall add branch and leaves to the treectrl')

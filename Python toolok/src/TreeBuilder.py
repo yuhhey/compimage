@@ -20,6 +20,7 @@ class Expander(object):
     
 class DirectoryExpander(Expander):
     def __init__(self, treectrl, path, itemID = None):
+        #FIXME: turn it to assert
         if not os.path.isdir(path):
             raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
         self.path = path
@@ -44,7 +45,14 @@ class DirectoryExpander(Expander):
                 child = self.tree.AppendItem(self.itemID, i)
                 DirectoryExpander(self.tree, fullpath, child)
         self.expanded = True
-                
+ 
+ 
+class HDRConfigExpander(Expander):
+    def __init__(self, treectrl, itemID, HDRConfig):
+        assert(itemID != None, "HDRConfig can not be expanded as root in a TreeCtrl")
+        Expander.__init__(self, treectrl, itemID)
+        pass
+               
 class TreeCtrlFrame(wx.Frame):
     def __init__(self, parent, id, title, rootdir):
         wx.Frame.__init__(self, parent, id, title, wx.DefaultPosition, wx.Size(450, 350))
