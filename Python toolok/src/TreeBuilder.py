@@ -50,15 +50,27 @@ class DirectoryExpander(Expander):
 class HDRConfigExpander(Expander):
     def __init__(self, treectrl, itemID, HDRConfig):
         assert(itemID != None, "HDRConfig can not be expanded as root in a TreeCtrl")
+        self.expanded = False
+        self.HDRConfig = HDRConfig
         Expander.__init__(self, treectrl, itemID)
-        pass
+    
+    def isExpanded(self):
+        return self.expanded
+    
+    def expand(self):
+        if self.isExpanded():
+            return
+        config_item = self.tree.AppendItem(self.itemID, 'HDR sequence parameters')
+        self.tree.AppendItem(config_item, self.HDRConfig._prefix)
+        self.tree.AppendItem(config_item, self.HDRConfig._ext)
+        self.tree.AppendItem(config_item, self.HDRConfig._target_dir)
                
 class TreeCtrlFrame(wx.Frame):
     def __init__(self, parent, id, title, rootdir):
         wx.Frame.__init__(self, parent, id, title, wx.DefaultPosition, wx.Size(450, 350))
         panel = wx.Panel(self, -1)
         self.tree = wx. TreeCtrl(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
-        expander = DirectoryExpander(self.tree, '/')
+        expander = DirectoryExpander(self.tree, '/bin')
         
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.tree, 1, wx.EXPAND)
@@ -77,7 +89,7 @@ class TreeCtrlFrame(wx.Frame):
 
 class TestExpandersApp(wx.App):
     def OnInit(self):
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/')
+        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/bin')
         frame.Show(True)
         self.SetTopWindow(frame)
         return True

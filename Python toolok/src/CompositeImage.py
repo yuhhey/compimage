@@ -123,7 +123,6 @@ class TimeStampChecker:
         datumshot = datum_pair[0]
         for k in comp_img:
             datum_from_seq_pair = timestampFromMetadata(comp_img[k])
-            datum_from_seq = datum_from_seq_pair[0]
             datum_from_seq_saved = datum_from_seq_pair[1]
             if (abs(datumshot - datum_from_seq_saved) < maxtimediff):
                 return True
@@ -155,10 +154,10 @@ class CollectHDRStrategy:
         imgs.sort(key=lambda si:(timestampFromMetadata(si))[0])
         return imgs
 
-    def parseFileList(self, fl):
+    def parseFileList(self, fl, hdr_config):
         imgs = self.readFiles(fl)
         
-        cic = CompositeImageCollector([TimeStampChecker(maxdiff=7), AEBChecker()])
+        cic = CompositeImageCollector(hdr_config.GetCheckers())
         sic = SingleImageCollector()
         cic.setNextCollector(sic)
         hdrs = []
@@ -166,7 +165,7 @@ class CollectHDRStrategy:
             if not cic.check(si):
                 if cic.collected():
                     hdrs.insert(0, cic)
-                cic = CompositeImageCollector([TimeStampChecker(maxdiff=7), AEBChecker()])
+                cic = CompositeImageCollector(hdr_config.GetCheckers())
                 cic.check(si)
                 cic.setNextCollector(sic)
         
@@ -188,46 +187,90 @@ class SymlinkGenerator():
     def __init__(self):
         self.targetDir=""
         
-    def setTargetDir(self,d):
-        self.targetDir = os.path.realpath(d)
-        self.rawDir = os.path.join(self.targetDir, 'CR2')
+    def __call__(self, cimg, hdr_config):
+        target_dir = hdr_config.GetTargetdir()
+        raw_ext = hdr_config.GetRawExt()
+        raw_dir = os.path.join(target_dir, raw_ext[1:])
         
-    def __call__(self, cimg):
-        if self.targetDir == "":
-            d = os.path.curdir
-            self.setTargetDir(d)
         
-        if not os.path.exists(self.rawDir):
-            os.makedirs(self.rawDir)
+        if not os.path.exists(raw_dir):
+            os.makedirs(raw_dir)
             
-        os.chdir(self.rawDir)
+        os.chdir(raw_dir)
         for f in cimg.getFilelist():
             bn = os.path.basename(f)
             if not os.path.exists(bn):
                 os.symlink(f, bn)
         
 
-class HDRGenerator():
-    def __init__(self):
-        pass
+class HDRConfig():
+    def __init(self,targetdir, raw_ext, hdr_ext, prefix, checkers=[TimeStampChecker(7), AEBChecker]):
+        self.SetTargetDir(targetdir)
+        self.SetRawExtension(raw_ext)
+        self.SetOutputExt(hdr_ext)
+        self.SetPrefix(prefix)
+        self.SetCheckers(checkers)
+        
+    def SetTargetDir(self, d):
+        if d == "":
+            self._target_dir = os.path.curdir
+        else:
+            self._target_dir = d
+            
+    def GetTargetDir(self):
+        return self._targetdir
     
-    
-    def setParams(self, targetdir, ext, prefix):
-        self._target_dir = targetdir
-        self._ext = ext
+    def SetRawExt(self,raw_ext):
+        self._raw_ext = raw_ext
+        
+    def GetRawExt(self):
+        return self._raw
+        
+
+    def SetPrefix(self,prefix):
         self._prefix = prefix
         
+    def GetPrefix(self):
+        return self._prefix
+    
+    def SetCheckers(self, chkrs):
+        self._checkers = chkrs
         
-    def __call__(self, cimg):
+    def GetCheckers(self):
+        return self._checkers
+    
+    def SetImageExt(self, ext):
+        self._output_ext = ext
+        
+    def GetImageExt(self):
+        return self._output_ext
+        
+    def GetImageSubdir(self):
+        return self.GetImageExt()[1:]
+
+class HDRGenerator():
+    def __init__(self):
+        pass    
+        
+    def __call__(self, cimg, hdr_config):
+        
+        def RawnameToImagename(f):
+            image_subdir = hdr_config.GetImageSubdir()
+            img_name = os.path.join(hdr_config.GetTargetDir(),
+                                    image_subdir,
+                                    os.path.splitext(os.path.basename(f))[0]+hdr_config.GetImageExt())
+            return img_name
         
         fl = cimg.getFilelist()
-        img_subdir = self._ext[1:]
-        tif_list = [os.path.join(self._target_dir, img_subdir, os.path.splitext(os.path.basename(f))[0]+self._ext) for f in fl]
-        align_cmd = ['align_image_stack', '-atmp', '-p%s.pto' % os.path.join(self._target_dir, self._prefix)] + tif_list
+        
+        tif_list = [RawnameToImagename(f) for f in fl]
+        pto_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.GetPrefix())
+        align_cmd = ['align_image_stack', '-atmp', '-p%s.pto' % pto_file] + tif_list
         print align_cmd
         subprocess.call(align_cmd)
         
-        enfuse_cmd = ['enfuse', '-o%s' % os.path.join(self._target_dir, self._prefix+self._ext)] + ['tmp%04d.tif'%i for i in range(len(fl))]
+        output_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.GetPrefix()+hdr_config.GetImageExt())
+        enfuse_cmd = ['enfuse', '-o%s' % output_file] + ['tmp%04d.tif'%i for i in range(len(fl))]
         print enfuse_cmd
         subprocess.call(enfuse_cmd)
         
