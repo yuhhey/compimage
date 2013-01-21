@@ -113,6 +113,14 @@ class SingleImageCollector(CompositeImageCollector):
 
 
 class TimeStampChecker:
+    """ Checks if consequetive images are shot within 'maxdiff' sec.
+        5DMarkII records the time of shot when it was started. The shot is ended +exposure_time
+        second later. This checker test the time difference between finishing image N and
+        starting image N+1. exposure_time becomes important for night shots."""
+    """TODO: it checks for all the images within the composite image comp_img. The time difference can be big 
+          in case of composite images with many images, e.g. panoramas. Especially taken during night.
+          The HDRStrategy objects orders the images by their 'date time original' exif field, so there is room
+          for perfomance improvement"""
     def __init__(self, maxdiff):
         self.maxdiff = maxdiff
     def __call__(self, comp_img, simg):
@@ -154,7 +162,11 @@ class CollectHDRStrategy:
         imgs.sort(key=lambda si:(timestampFromMetadata(si))[0])
         return imgs
 
-    def parseFileList(self, fl, hdr_config):
+    def parseFileList(self, fl, hdr_config=None):
+        
+        if hdr_config == None:
+            hdr_config = HDRConfig(os.getcwd())
+            
         imgs = self.readFiles(fl)
         
         cic = CompositeImageCollector(hdr_config.GetCheckers())
@@ -162,6 +174,7 @@ class CollectHDRStrategy:
         cic.setNextCollector(sic)
         hdrs = []
         for si in imgs:
+            print si.name()
             if not cic.check(si):
                 if cic.collected():
                     hdrs.insert(0, cic)
@@ -183,12 +196,12 @@ def timestampFromMetadata(simg):
     return dt
 
 
-class SymlinkGenerator():
+class SymlinkGenerator:
     def __init__(self):
         self.targetDir=""
         
     def __call__(self, cimg, hdr_config):
-        target_dir = hdr_config.GetTargetdir()
+        target_dir = hdr_config.GetTargetDir()
         raw_ext = hdr_config.GetRawExt()
         raw_dir = os.path.join(target_dir, raw_ext[1:])
         
@@ -201,13 +214,14 @@ class SymlinkGenerator():
             bn = os.path.basename(f)
             if not os.path.exists(bn):
                 os.symlink(f, bn)
-        
+
 
 class HDRConfig():
-    def __init(self,targetdir, raw_ext, hdr_ext, prefix, checkers=[TimeStampChecker(7), AEBChecker]):
+    """Contains all the configuration data used in HDR sequence handling and final image generation"""
+    def __init__(self,targetdir, raw_ext='.CR2', hdr_ext='.TIF', prefix='HDR', checkers=[TimeStampChecker(7), AEBChecker()]):
         self.SetTargetDir(targetdir)
-        self.SetRawExtension(raw_ext)
-        self.SetOutputExt(hdr_ext)
+        self.SetRawExt(raw_ext)
+        self.SetImageExt(hdr_ext)
         self.SetPrefix(prefix)
         self.SetCheckers(checkers)
         
@@ -218,15 +232,20 @@ class HDRConfig():
             self._target_dir = d
             
     def GetTargetDir(self):
-        return self._targetdir
+        return self._target_dir
     
     def SetRawExt(self,raw_ext):
         self._raw_ext = raw_ext
         
     def GetRawExt(self):
-        return self._raw
+        return self._raw_ext
+      
+    def SetImageExt(self, ext):
+        self._output_ext = ext
         
-
+    def GetImageExt(self):
+        return self._output_ext
+      
     def SetPrefix(self,prefix):
         self._prefix = prefix
         
@@ -238,15 +257,10 @@ class HDRConfig():
         
     def GetCheckers(self):
         return self._checkers
-    
-    def SetImageExt(self, ext):
-        self._output_ext = ext
-        
-    def GetImageExt(self):
-        return self._output_ext
-        
+
     def GetImageSubdir(self):
         return self.GetImageExt()[1:]
+
 
 class HDRGenerator():
     def __init__(self):
@@ -266,17 +280,16 @@ class HDRGenerator():
         tif_list = [RawnameToImagename(f) for f in fl]
         pto_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.GetPrefix())
         align_cmd = ['align_image_stack', '-atmp', '-p%s.pto' % pto_file] + tif_list
-        print align_cmd
         subprocess.call(align_cmd)
         
         output_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.GetPrefix()+hdr_config.GetImageExt())
         enfuse_cmd = ['enfuse', '-o%s' % output_file] + ['tmp%04d.tif'%i for i in range(len(fl))]
-        print enfuse_cmd
         subprocess.call(enfuse_cmd)
         
         for fn in glob.glob('tmp[0-9][0-9][0-9][0-9]*'):
             os.remove(fn)
-        
+
+       
 class ShellScriptWriter:
     """Represents script logic. Returns script elements as strings"""
     def __init__(self):
