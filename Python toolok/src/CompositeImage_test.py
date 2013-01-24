@@ -50,7 +50,7 @@ class SingleImageTest(unittest.TestCase):
     
     #@mock.patch('CompositeImage.pyexiv2.ImageMetadata.__getitem__')
     #@mock.patch('CompositeImage.pyexiv2.ImageMetadata')
-    def test_metadata(self):#, metadata_mock, getitem_mock):
+    def test_metadata(self):
         
         #metadata_mock.__getitem__.return_value = fractions.Fraction(1,100)
         #getitem_mock.return_value = fractions.Fraction(1,100)
@@ -74,11 +74,17 @@ class SingleImageTest(unittest.TestCase):
         
         si3 = CompositeImage.SingleImage(file_list[0])
         self.assertTrue(self.SI == si3, "SingleImage for the same file")
-        
+
+
+class SingleImage_mock(CompositeImage.SingleImage):
+    def __getitem__(self, arg):
+        print "SingleImage_mock.__getitem__ called with arg=%s" % str(arg)
+        return 12
         
 class CompositeImageTest(unittest.TestCase):
     def setUp(self):
-        self.ci = CompositeImage.CompositeImage() 
+        self.ci = CompositeImage.CompositeImage()
+        CompositeImage.SingleImage = SingleImage_mock
     
     def test_addAndlen(self):
         self.ci[1] = 1
@@ -148,7 +154,6 @@ class CompositeImageCollectorTest(unittest.TestCase):
         self.assertEqual(2, n_imgs, 'Empty checker case')
      
 
-sid = {}
 
 class SingleImageDict():
     def __init__(self, fl, tg, values):
@@ -160,23 +165,10 @@ class SingleImageDict():
                 sid[fn+tn] = values[vindex]
                 vindex = vindex + 1
                 
-    def SIInit(self,name):
-        # TODO : Itt kell krealni egy sajat mock objektumot és valahogy atnevezni a hívó referenciát
-        pass
     
-    def SIGetitem(self,arg):
-        """ TODO: Kell egy fuggveny a saját mock objektumban"""
-        pass
             
 
-class SingleImageSideEffect():
-    def __init__(self, name):
-        self.name = name
-        
-    def __getitem__(self, arg):
-        global sid
-        index = self.name + arg
-        return sid[index]
+
     
 
 class CollectHDRStrategyTest(unittest.TestCase):
@@ -193,9 +185,8 @@ class CollectHDRStrategyTest(unittest.TestCase):
         exp_res = datetime.timedelta(seconds=0.01)
         self.assertEqual(veg-kezdo, exp_res, 'Timedelta: %s instead of %s' %(veg-kezdo, exp_res))
 
-    # TODO: Hogyan patcheljek egy objektumot egy másikkal?
-    @mock.patch('CompositeImage.SingleImage')
-    def test_findHDR(self, si_mock):
+    @mock.patch("CompositeImage.SingleImage", SingleImage_mock)
+    def test_findHDR(self):
         si_mock_values = [datetime.datetime(2012,10,01,01,02,03), 0.02,
                           datetime.datetime(2012,10,01,01,02,04), 0.1,
                           datetime.datetime(2012,10,01,01,02,05), 0.1,
@@ -214,7 +205,7 @@ class CollectHDRStrategyTest(unittest.TestCase):
                           datetime.datetime(2012,10,01,01,02,46), 0.1,
                           datetime.datetime(2012,10,01,01,10,04), 0.1]
         
-        SingleImageDict(file_list, tag_list, si_mock_values)
+        #SingleImageDict(file_list, tag_list, si_mock_values)
         
         hdrs, sic = self.collect_HDR_strategy.parseFileList(file_list)
         
