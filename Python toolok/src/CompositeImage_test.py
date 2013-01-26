@@ -8,7 +8,7 @@ import os.path
 import unittest
 import mock
 import glob
-import shutil
+
 
 file_list = ["/home/smb/git/fotoworkflow/Python toolok/src/test_images/IMG_3025.CR2",
              "/home/smb/git/fotoworkflow/Python toolok/src/test_images/IMG_3026.CR2", 
@@ -148,35 +148,27 @@ class CompositeImageCollectorTest(unittest.TestCase):
         self.assertEqual(2, n_imgs, 'Empty checker case')
      
 
-sid = {}
-
 class SingleImageDict():
     def __init__(self, fl, tg, values):
-        global sid
+        self.sid = {}
         assert len(values) == len(fl)*len(tg)
         vindex = 0
         for fn in fl:
             for tn in tg: 
-                sid[fn+tn] = values[vindex]
+                self.sid[fn+tn] = values[vindex]
                 vindex = vindex + 1
                 
-    def SIInit(self,name):
-        # TODO : Itt kell krealni egy sajat mock objektumot és valahogy atnevezni a hívó referenciát
-        pass
-    
-    def SIGetitem(self,arg):
-        """ TODO: Kell egy fuggveny a saját mock objektumban"""
-        pass
+    def lookup(self, name, tag):
+        return self.sid[name+tag]
             
 
 class SingleImageSideEffect():
-    def __init__(self, name):
+    def __init__(self, name, sidict):
         self.name = name
+        self.sidict = sidict
         
-    def __getitem__(self, arg):
-        global sid
-        index = self.name + arg
-        return sid[index]
+    def getitem(self, arg):
+        return self.sidict.lookup(self.name, arg)
     
 
 class CollectHDRStrategyTest(unittest.TestCase):
@@ -193,9 +185,11 @@ class CollectHDRStrategyTest(unittest.TestCase):
         exp_res = datetime.timedelta(seconds=0.01)
         self.assertEqual(veg-kezdo, exp_res, 'Timedelta: %s instead of %s' %(veg-kezdo, exp_res))
 
-    # TODO: Hogyan patcheljek egy objektumot egy másikkal?
-    @mock.patch('CompositeImage.SingleImage')
-    def test_findHDR(self, si_mock):
+
+
+
+    # TODO: Hogyan patcheljek egy objektumot egy másikkal?    
+    def test_findHDR(self):
         si_mock_values = [datetime.datetime(2012,10,01,01,02,03), 0.02,
                           datetime.datetime(2012,10,01,01,02,04), 0.1,
                           datetime.datetime(2012,10,01,01,02,05), 0.1,
@@ -215,6 +209,9 @@ class CollectHDRStrategyTest(unittest.TestCase):
                           datetime.datetime(2012,10,01,01,10,04), 0.1]
         
         SingleImageDict(file_list, tag_list, si_mock_values)
+        
+        CompositeImage.SingleImage.__init__ = mock.MagicMock()
+        CompositeImage.SingleImage.__init__.side_effect = SIInit
         
         hdrs, sic = self.collect_HDR_strategy.parseFileList(file_list)
         
