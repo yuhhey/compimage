@@ -8,6 +8,7 @@ import os.path
 import unittest
 import mock
 import glob
+import shutil
 
 
 file_list = ["/home/smb/git/fotoworkflow/Python toolok/src/test_images/IMG_3025.CR2",
@@ -50,7 +51,7 @@ class SingleImageTest(unittest.TestCase):
     
     #@mock.patch('CompositeImage.pyexiv2.ImageMetadata.__getitem__')
     #@mock.patch('CompositeImage.pyexiv2.ImageMetadata')
-    def test_metadata(self):#, metadata_mock, getitem_mock):
+    def test_metadata(self):
         
         #metadata_mock.__getitem__.return_value = fractions.Fraction(1,100)
         #getitem_mock.return_value = fractions.Fraction(1,100)
@@ -74,11 +75,17 @@ class SingleImageTest(unittest.TestCase):
         
         si3 = CompositeImage.SingleImage(file_list[0])
         self.assertTrue(self.SI == si3, "SingleImage for the same file")
-        
+
+
+class SingleImage_mock(CompositeImage.SingleImage):
+    def __getitem__(self, arg):
+        print "SingleImage_mock.__getitem__ called with arg=%s" % str(arg)
+        return 12
         
 class CompositeImageTest(unittest.TestCase):
     def setUp(self):
-        self.ci = CompositeImage.CompositeImage() 
+        self.ci = CompositeImage.CompositeImage()
+        CompositeImage.SingleImage = SingleImage_mock
     
     def test_addAndlen(self):
         self.ci[1] = 1
@@ -150,25 +157,19 @@ class CompositeImageCollectorTest(unittest.TestCase):
 
 class SingleImageDict():
     def __init__(self, fl, tg, values):
-        self.sid = {}
+        global sid
         assert len(values) == len(fl)*len(tg)
         vindex = 0
         for fn in fl:
             for tn in tg: 
-                self.sid[fn+tn] = values[vindex]
+                sid[fn+tn] = values[vindex]
                 vindex = vindex + 1
-                
-    def lookup(self, name, tag):
-        return self.sid[name+tag]
+    
+
+
             
 
-class SingleImageSideEffect():
-    def __init__(self, name, sidict):
-        self.name = name
-        self.sidict = sidict
-        
-    def getitem(self, arg):
-        return self.sidict.lookup(self.name, arg)
+
     
 
 class CollectHDRStrategyTest(unittest.TestCase):
@@ -185,10 +186,7 @@ class CollectHDRStrategyTest(unittest.TestCase):
         exp_res = datetime.timedelta(seconds=0.01)
         self.assertEqual(veg-kezdo, exp_res, 'Timedelta: %s instead of %s' %(veg-kezdo, exp_res))
 
-
-
-
-    # TODO: Hogyan patcheljek egy objektumot egy másikkal?    
+    @mock.patch("CompositeImage.SingleImage", SingleImage_mock)
     def test_findHDR(self):
         si_mock_values = [datetime.datetime(2012,10,01,01,02,03), 0.02,
                           datetime.datetime(2012,10,01,01,02,04), 0.1,
@@ -208,11 +206,9 @@ class CollectHDRStrategyTest(unittest.TestCase):
                           datetime.datetime(2012,10,01,01,02,46), 0.1,
                           datetime.datetime(2012,10,01,01,10,04), 0.1]
         
-        SingleImageDict(file_list, tag_list, si_mock_values)
-        
-        CompositeImage.SingleImage.__init__ = mock.MagicMock()
-        CompositeImage.SingleImage.__init__.side_effect = SIInit
-        
+
+        #SingleImageDict(file_list, tag_list, si_mock_values)
+       
         hdrs, sic = self.collect_HDR_strategy.parseFileList(file_list)
         
         
