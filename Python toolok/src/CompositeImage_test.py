@@ -8,7 +8,7 @@ import os.path
 import unittest
 import mock
 import glob
-import shutil
+import collections
 
 
 file_list = ["/home/smb/git/fotoworkflow/Python toolok/src/test_images/IMG_3025.CR2",
@@ -31,8 +31,24 @@ file_list = ["/home/smb/git/fotoworkflow/Python toolok/src/test_images/IMG_3025.
 
 
 tag_list = ["Exif.Photo.DateTimeOriginal",
-            "Exif.Photo.ExposureTime"]
+            "Exif.Photo.ExposureTime",
+            "Exif.Photo.ExposureBiasValue"]
 
+def makehash():
+    return collections.defaultdict(makehash)
+
+
+si_mock_data = makehash()
+
+# using this function assume that Composite.SingleImage object handles attributes properly.
+# It is a simple proxy in this context, hence it is not a strong assumption.
+#def setUpModule():
+for fn in file_list:
+    si = CompositeImage.SingleImage(fn)
+    for t in tag_list:
+        si_mock_data[fn][t] = si[t]
+    
+    
 class SingleImageTest(unittest.TestCase):
     def setUp(self):
  
@@ -49,19 +65,11 @@ class SingleImageTest(unittest.TestCase):
         exp_res = os.path.basename(file_list[0])
         self.assertEqual(exp_res, name, "%s.name() basename test" % self.CUTname)
     
-    #@mock.patch('CompositeImage.pyexiv2.ImageMetadata.__getitem__')
-    #@mock.patch('CompositeImage.pyexiv2.ImageMetadata')
+
     def test_metadata(self):
         
-        #metadata_mock.__getitem__.return_value = fractions.Fraction(1,100)
-        #getitem_mock.return_value = fractions.Fraction(1,100)
         exposure_time = self.SI['Exif.Photo.ExposureTime']
-        
-        print metadata_mock.call_args_list
-        print metadata_mock.read.call_args_list
-        print metadata_mock.__getitem__.call_args_list
-        print metadata_mock.mock_calls
-        #metadata_mock.__getitem__.assert_called_once_with(fractions.Fraction(1,100))
+
         exp_res = fractions.Fraction(1,100)
         self.assertEqual(exp_res, exposure_time,)
         
@@ -79,9 +87,11 @@ class SingleImageTest(unittest.TestCase):
 
 class SingleImage_mock(CompositeImage.SingleImage):
     def __getitem__(self, arg):
-        print "SingleImage_mock.__getitem__ called with arg=%s" % str(arg)
-        return 12
-        
+        global si_mock_data
+        print self._fn, arg, si_mock_data[self._fn][arg]
+        return si_mock_data[self._fn][arg]
+    
+    
 class CompositeImageTest(unittest.TestCase):
     def setUp(self):
         self.ci = CompositeImage.CompositeImage()
@@ -166,12 +176,6 @@ class SingleImageDict():
                 vindex = vindex + 1
     
 
-
-            
-
-
-    
-
 class CollectHDRStrategyTest(unittest.TestCase):
 
     def setUp(self):
@@ -188,23 +192,7 @@ class CollectHDRStrategyTest(unittest.TestCase):
 
     @mock.patch("CompositeImage.SingleImage", SingleImage_mock)
     def test_findHDR(self):
-        si_mock_values = [datetime.datetime(2012,10,01,01,02,03), 0.02,
-                          datetime.datetime(2012,10,01,01,02,04), 0.1,
-                          datetime.datetime(2012,10,01,01,02,05), 0.1,
-                          datetime.datetime(2012,10,01,01,02,06), 0.1,
-                          datetime.datetime(2012,10,01,01,02,16), 0.1,
-                          datetime.datetime(2012,10,01,01,02,17), 0.1,
-                          datetime.datetime(2012,10,01,01,02,18), 0.1,
-                          datetime.datetime(2012,10,01,01,02,34), 0.1,
-                          datetime.datetime(2012,10,01,01,02,35), 0.1,
-                          datetime.datetime(2012,10,01,01,02,36), 0.1,
-                          datetime.datetime(2012,10,01,01,02,50), 0.1,
-                          datetime.datetime(2012,10,01,01,02,51), 0.1,
-                          datetime.datetime(2012,10,01,01,02,52), 0.1,
-                          datetime.datetime(2012,10,01,01,03,44), 0.1,
-                          datetime.datetime(2012,10,01,01,02,45), 0.1,
-                          datetime.datetime(2012,10,01,01,02,46), 0.1,
-                          datetime.datetime(2012,10,01,01,10,04), 0.1]
+
         
 
         #SingleImageDict(file_list, tag_list, si_mock_values)
