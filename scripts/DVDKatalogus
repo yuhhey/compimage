@@ -1,0 +1,71 @@
+#!/bin/bash
+# Mint minden Foto workflow script, ez is bárhonnan indítható
+# $1 a DVD eszköz fájl. pl /dev/scd0
+echo $0
+date
+
+DVD_DEVICE=$1
+
+#export DVD_KATALOGUS=/media/Munka/NyersAnyagKatalogus
+export DVD_KATALOGUS=/home/smb/SajatFejlesztes/FotoWorkflow/NyersAnyagKatalogus
+
+# Ez itt szükséges, ugyanis belépünk a DVD mount pontjába, hogy az ne szerepljen
+# a fájllistában
+pushd $DVD_KATALOGUS
+
+# Beraktuk a tálcába a DVD-t. Ez be is húzza a tálcát, ha kell
+export DVD_LABEL=`isoinfo -d -i $DVD_DEVICE | grep "Volume id:" | sed 's/Volume id: //
+s/ /_/g
+s/\//_/g'`
+
+output=$DVD_KATALOGUS/$DVD_LABEL
+
+if ( ! mount -t iso9660 -o ro $DVD_DEVICE /media/cdrom0 ) then
+  echo Nem tudom csatolni a DVD-t
+  exit
+fi
+
+# Ide fogjuk írni a direktori listát
+
+echo $DVD_LABEL: fájllista mentés  $output - ba.
+
+cd /media/cdrom0
+
+# ls -gGR > $output
+# Méret bájtban 14 karakter szélességben
+# max 93132GB (GB=2^30 bájt)-ig nincs gond.
+# Úgy kell nekem, ha ennél nagyobb fájlt akarok kezelni.
+
+find  . -type f -exec sh $DVD_KATALOGUS/format_item.sh  {} \; > $output
+
+popd
+eject
+exit
+
+# Átmásoljuk az új diskre, hogy ellenőrizzük a meglévőkkel a formázás előtt.
+#mkdir /media/usb0/backup/$DVD_LABEL
+#time cp -vR * /media/usb0/backup/$DVD_LABEL
+# Le kell majd törölni.
+RSZINK=-avt
+case ${DVD_LABEL%_*} in
+  CR2) rsync -avt /media/cdrom0/ /media/usb0/CR2
+  ;;
+  CDRoot) rsync -avt /media/cdrom0/ /media/usb0/CR2
+  ;;
+  HG10) rsync -avt /media/cdrom0/ /media/usb0/HG10 
+  ;;
+  VEGYES) rsync -avt /media/cdrom0/ /media/usb0
+  ;;
+  IXUS970IS) rsync $RSZINK /media/cdrom0/ /media/usb0/IXUS970IS
+  ;;
+  LAGZI) rsync $RSZINK /media/cdrom0/ /media/usb0/LAGZI
+  ;;
+esac
+# Megyünk vissza abba a könyvtárba, amelyikben eredetileg voltunk
+popd
+
+# Jöhet a következő lemez.
+eject
+echo KÉSZ!!!!!!!!!
+mplayer /usr/share/sounds/pop.wav
+
