@@ -4,6 +4,8 @@ import TreeBuilder
 import unittest
 import mock
 import os
+
+
 class TreeBuildTest(unittest.TestCase):
     
     def countSubdirs(self, path):
@@ -73,3 +75,41 @@ class TreeBuildTest(unittest.TestCase):
             self.assertEqual(args[1], hdr_conf_param[hdr_conf_param.keys()[i-1]])
             
         self.assertEqual(call_args[1][0][1], prefix)
+        
+
+class TreeDictTest(unittest.TestCase):
+    
+    
+    def __init__(self, *args, **kwrds):
+        
+        super(TreeDictTest, self).__init__(*args, **kwrds)
+        self.d = {'/': 1,
+                  '/home/grof':2,
+                  '/usr/local/bin':3}
+        
+        self.test_keys = {'/bin/': self.d['/'],
+                          '/home': self.d['/'],
+                          '/home/grof/src': self.d['/home/grof'],
+                          '/usr/local': self.d['/']}
+    
+    def checkResult(self, CUT, d):
+        for k in d.keys():
+            er = d[k]
+            r = CUT[k]
+            self.assertEqual(er, r, 'er=%s, r=%s' % (k, str(d[k])))
+    
+    def test_lookup(self):
+        
+        
+        CUT = TreeBuilder.TreeDict()
+        for k in self.d.keys():
+            CUT[k] = self.d[k]
+        self.checkResult(CUT, self.d)
+            
+
+        self.checkResult(CUT, self.test_keys)
+        
+        # Check the case when there is no entry for root neither for the index
+        del CUT['/']
+        self.assertRaises(KeyError, CUT.__getitem__, '/pisti')
+        
