@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# $1: az eredményfájl teljes neve kiterjesztéssel
+
+# Leginkabb a sigma lencshez kell
+# TODO: Tegyük - e kapcsoló mögé?
+for i in *.tiff
+do
+  fulla `tca_correct -o abcv $i | grep -e -r` $i
+done
+
+# Kézből készített képeknél ez szükséges
+align_image_stack -a AIS_ img_????_corr.tiff
+
+enfuse -o $1 AIS_????.tif

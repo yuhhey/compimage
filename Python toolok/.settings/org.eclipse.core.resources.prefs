@@ -1,0 +1,17 @@
+eclipse.preferences.version=1
+encoding//src/CompositeImage.py=utf-8
+encoding//src/CompositeImage_GUI.py=utf-8
+encoding//src/CompositeImage_test.py=utf-8
+encoding//src/ImageSequence.py=utf-8
+encoding//src/ImageSequence_GUI.py=utf-8
+encoding//src/ImageSequence_GUI_test.py=utf-8
+encoding//src/ImageSequence_test.py=utf-8
+encoding//src/MockObjectSet.py=utf-8
+encoding//src/ThumbnailCtrl_test.py=utf-8
+encoding//src/TreeBuilder.py=utf-8
+encoding//src/TreeProba.py=utf-8
+encoding//src/duplak_eredmeny.py=utf-8
+encoding//src/duplak_torlese.py=utf-8
+encoding//src/panorama.py=utf-8
+encoding//src/panorama_test.py=utf-8
+encoding//src/treebuilder_test.py=utf-8
