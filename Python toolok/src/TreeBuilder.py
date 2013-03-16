@@ -33,13 +33,16 @@ class MyPopupMenu(wx.Menu):
         print "Item Three selected in the %s window"%self.WinName
 
 
+
 class HDRConfigPanel(wx.Panel):
     
     def __init__(self, *args, **kw):
-        self.hdr_config = kw['hdr_config']
+        self.hdr_config = copy.deepcopy(kw['hdr_config'])
         del kw['hdr_config']
         self.path = kw['path']
         del kw['path']
+        self.hdr_config_dict = kw['hdr_config_dict']
+        del kw['hdr_config_dict']
         
         super(HDRConfigPanel, self).__init__(*args, **kw)
         self.InitUI()
@@ -53,7 +56,7 @@ class HDRConfigPanel(wx.Panel):
 
 
     def setConfig(self, hdr_config, path):
-        self.hdr_config = hdr_config
+        self.hdr_config = copy.deepcopy(hdr_config)
         self.path = path
         for w, l, h, value in self.inputFieldData():
             getattr(self, w).SetValue(value)
@@ -84,16 +87,25 @@ class HDRConfigPanel(wx.Panel):
             
         self.SetSizer(sbs)
         
+        
+    def updateHDRConfig(self):
+        pass
+
+
     def onTargetDir(self, evt):
         print 'onTargetDir'
         value = self.targetDir.GetValue()
         self.hdr_config.SetTargetDir(value)
+            
+        
     
     def onRawExtension(self, evt):
         pass
     
+    
     def onImageExt(self,evt):
         pass
+    
     
     def onPrefix(self,evt):
         pass
@@ -137,8 +149,7 @@ class HDRConfigDialog(wx.Dialog):
         self.hdr_config.SetPrefix(self.panel.prefix.GetValue())
         
         self.onCancel(evt)
-        
-        
+                
     
     def onCancel(self, evt):
         self.Destroy()
@@ -287,6 +298,7 @@ class HDRConfigExpander(Expander):
         self.expanded = True
 
 
+
 class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
     def __init__(self):
@@ -320,9 +332,11 @@ class TreeDict:
 
     def keys(self):
         return self.d.keys()
-    
                
+
 class TreeCtrlFrame(wx.Frame):
+    
+    
     def __init__(self, parent, id, title, rootdir):
         
         self.path = rootdir
@@ -342,7 +356,10 @@ class TreeCtrlFrame(wx.Frame):
         
         self.hdr_config_dict = TreeDict()
         self.hdr_config_dict[rootdir] = CompositeImage.HDRConfig('/tmp')
-        self.hdrconfig_panel = HDRConfigPanel(hdr_config= self.hdr_config_dict[rootdir], path = rootdir, parent=self)
+        self.hdrconfig_panel = HDRConfigPanel(hdr_config=self.hdr_config_dict[rootdir],
+                                              path=rootdir,
+                                              hdr_config_dict=self.hdr_config_dict,
+                                              parent=self)
         
         hsizer = wx.BoxSizer(wx.HORIZONTAL)
         hsizer.Add(panel, 1, wx.EXPAND)
@@ -354,16 +371,17 @@ class TreeCtrlFrame(wx.Frame):
         self.tree.Bind(wx.EVT_TREE_ITEM_EXPANDING, self.onItemExpand, id=1)
         self.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK, self.onRightClick, self.tree)
         self.Bind(wx.EVT_TREE_SEL_CHANGED, self.onClickItem, self.tree)
-        
-        
-        
+                
         
     def onItemExpand(self, e):
+
         item = e.GetItem()
         data = self.tree.GetPyData(item)
         if not data.isExpanded():
             data.expand()
+        
             
+
     def onClickItem(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
@@ -371,6 +389,7 @@ class TreeCtrlFrame(wx.Frame):
         
         hdr_config = self.hdr_config_dict[self.path]
         self.hdrconfig_panel.setConfig(hdr_config, self.path)
+        
         
     def onRightClick(self, e):
         item = e.GetItem()
@@ -381,6 +400,7 @@ class TreeCtrlFrame(wx.Frame):
     def onUpdate(self, e):
         print self.path, self.hdrconfig_panel.hdr_config
         self.hdr_config_dict[self.path] = self.hdrconfig_panel.hdr_config
+
 
 class TestExpandersApp(wx.App):
     def OnInit(self):
