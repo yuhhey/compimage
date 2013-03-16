@@ -33,7 +33,6 @@ class MyPopupMenu(wx.Menu):
         print "Item Three selected in the %s window"%self.WinName
 
 
-
 class HDRConfigPanel(wx.Panel):
     
     def __init__(self, *args, **kw):
@@ -277,28 +276,6 @@ class DirectoryExpander(Expander):
         return DirectoryExpanderPopup(parent_window, self)
 
 
-class HDRConfigExpander(Expander):
-    def __init__(self, treectrl, itemID, HDRConfig):
-        assert(itemID != None, "HDRConfig can not be expanded as root in a TreeCtrl")
-        self.expanded = False
-        self.HDRConfig = HDRConfig
-        treectrl.SetItemHasChildren(itemID)
-        Expander.__init__(self, treectrl, itemID)
-    
-    def isExpanded(self):
-        return self.expanded
-    
-    def expand(self):
-        if self.isExpanded():
-            return
-        self.tree.AppendItem(self.itemID, 'Target dir: ' + self.HDRConfig.GetTargetDir())
-        self.tree.AppendItem(self.itemID, 'Raw ext: ' + self.HDRConfig.GetRawExt())
-        self.tree.AppendItem(self.itemID, 'Image ext: ' + self.HDRConfig.GetImageExt())
-        self.tree.SetItemHasChildren(self.itemID)
-        self.expanded = True
-
-
-
 class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
     def __init__(self):
@@ -307,7 +284,7 @@ class TreeDict:
         
     def __getitem__(self, key):
         k = os.path.abspath(key)
-        if not k in self.d.keys():
+        if not k in self:
             d = os.path.dirname(k)
             if d == k:
                 raise KeyError
@@ -329,6 +306,9 @@ class TreeDict:
     def __len__(self):
         return len(self.d)
 
+
+    def __contains__(self, key):
+        return key in self.d.keys()
 
     def keys(self):
         return self.d.keys()
@@ -380,7 +360,6 @@ class TreeCtrlFrame(wx.Frame):
         if not data.isExpanded():
             data.expand()
         
-            
 
     def onClickItem(self, e):
         item = e.GetItem()
@@ -400,6 +379,8 @@ class TreeCtrlFrame(wx.Frame):
     def onUpdate(self, e):
         print self.path, self.hdrconfig_panel.hdr_config
         self.hdr_config_dict[self.path] = self.hdrconfig_panel.hdr_config
+        for k in self.hdr_config_dict.keys():
+            print k, self.hdr_config_dict[k]
 
 
 class TestExpandersApp(wx.App):
