@@ -261,6 +261,13 @@ class HDRConfig():
     def GetImageSubdir(self):
         return self.GetImageExt()[1:]
 
+    def __str__(self):
+        return "HDRConfig:\n" + \
+               "targetDir:%s\n" % self.GetTargetDir() + \
+               "rawExt:%s\n" % self.GetRawExt() + \
+               "imgExt:%s\n" % self.GetImageExt() + \
+               "prefix:%s\n" % self.GetPrefix()
+
 
 class HDRGenerator():
     def __init__(self):
