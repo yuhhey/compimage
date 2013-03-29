@@ -160,6 +160,7 @@ class Expander(object):
         self.tree = treectrl
         self.itemID = itemID
         self.tree.SetPyData(itemID, self)
+    
         
     def isExpanded(self):
         raise NotImplementedError
@@ -276,6 +277,20 @@ class DirectoryExpander(Expander):
         return DirectoryExpanderPopup(parent_window, self)
 
 
+class HDRExpander(DirectoryExpander):
+    def __init__(self, treectrl, path, itemID):
+        Expander.__init__(self, treectrl, itemID)
+        
+    
+    def isExpanded(self):
+        return self.expanded
+    
+    def expand(self):
+        # TODO: Minden egyes alkalommal újra kell számolni
+        if self.isExpanded():
+            return
+        
+        
 class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
     def __init__(self):
