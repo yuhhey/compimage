@@ -185,6 +185,13 @@ class CollectHDRStrategy:
         if cic.collected():
             hdrs.insert(0, cic)
         return hdrs, sic
+    
+    def parseDir(self, d, hdr_config=None):
+        if hdr_config == None:
+            hdr_config = HDRConfig(os.getcwd())
+        
+        fl = [fn for fn in glob.glob(d)]
+        return self.parseFileList(fl, hdr_config)
  
       
 def timestampFromMetadata(simg):
