@@ -155,9 +155,9 @@ class HDRConfigDialog(wx.Dialog):
 
     
 class Expander(object):
-    def __init__(self, treectrl, itemID):
+    def __init__(self, tree, itemID):
         
-        self.tree = treectrl
+        self.tree = tree
         self.itemID = itemID
         self.tree.SetPyData(itemID, self)
     
@@ -246,17 +246,17 @@ class DirectoryExpanderPopup(wx.Menu):
 
  
 class DirectoryExpander(Expander):
-    def __init__(self, treectrl, path, itemID = None):
+    def __init__(self, tree, path, itemID = None):
         #FIXME: turn it to assert
         if not os.path.isdir(path):
             raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
         self.path = path
         if itemID == None:
-            itemID = treectrl.AddRoot(path)
+            itemID = tree.AddRoot(path)
         
-        treectrl.SetItemHasChildren(itemID)
+        tree.SetItemHasChildren(itemID)
         self.expanded = False
-        Expander.__init__(self,treectrl, itemID)
+        Expander.__init__(self,tree, itemID)
         
     def isExpanded(self):
         return self.expanded
@@ -271,15 +271,22 @@ class DirectoryExpander(Expander):
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, i)
                 DirectoryExpander(self.tree, fullpath, child)
+                
+        # Here we shall parse for image sequences.
         self.expanded = True
  
     def getPopupMenu(self, parent_window):
         return DirectoryExpanderPopup(parent_window, self)
 
 
-class HDRExpander(DirectoryExpander):
-    def __init__(self, treectrl, path, itemID):
-        Expander.__init__(self, treectrl, itemID)
+class ImageExpander(Expander):
+    pass
+
+class ImageSequenceExpander(Expander):
+    def __init__(self, tree, path, itemID, img_seq):
+        Expander.__init__(self, tree, itemID)
+        self.path=path
+        self.seq = img_seq
         
     
     def isExpanded(self):
@@ -289,7 +296,11 @@ class HDRExpander(DirectoryExpander):
         # TODO: Minden egyes alkalommal újra kell számolni
         if self.isExpanded():
             return
-        
+        for img in self.seq:
+            child = self.tree.AppendItem(self.itemID, img.name(basename=True))
+            ImageExpander(self.tree, img, child)
+            
+        self.expanded = True
         
 class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""

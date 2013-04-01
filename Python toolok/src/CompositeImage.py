@@ -56,6 +56,9 @@ class CompositeImage(object):
             return [os.path.basename(f) for f in self._images.keys()]
         else:
             return self._images.keys()
+        
+    def keys(self):
+        return self.getFileList()
                 
 
 class CompositeImageCollector:
