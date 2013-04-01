@@ -280,14 +280,17 @@ class DirectoryExpander(Expander):
 
 
 class ImageExpander(Expander):
-    pass
+    def __init__(self, tree, itemID, image):
+        Expander.__init__(self,tree, itemID)
+        self.image = image
 
 class ImageSequenceExpander(Expander):
     def __init__(self, tree, path, itemID, img_seq):
         Expander.__init__(self, tree, itemID)
         self.path=path
         self.seq = img_seq
-        
+        if len(self.seq) > 0:
+            tree.SetItemHasChildren(itemID)
     
     def isExpanded(self):
         return self.expanded
