@@ -180,20 +180,21 @@ class CollectHDRStrategy:
             print si.name()
             if not cic.check(si):
                 if cic.collected():
-                    hdrs.insert(0, cic)
+                    hdrs.insert(0, cic.getCompImage())
                 cic = CompositeImageCollector(hdr_config.GetCheckers())
                 cic.check(si)
                 cic.setNextCollector(sic)
         
         if cic.collected():
-            hdrs.insert(0, cic)
+            hdrs.insert(0, cic.getCompImage())
         return hdrs, sic
     
     def parseDir(self, d, hdr_config=None):
         if hdr_config == None:
             hdr_config = HDRConfig(os.getcwd())
         
-        fl = [fn for fn in glob.glob(d)]
+        path_with_wildcard = os.path.join(d, "*%s" % hdr_config.GetRawExt())
+        fl = [fn for fn in glob.glob(path_with_wildcard)]
         return self.parseFileList(fl, hdr_config)
  
       
