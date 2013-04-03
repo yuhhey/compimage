@@ -81,6 +81,12 @@ class CompositeImageCollector:
     def collected(self):
         return len(self._images) > 1
 
+
+    def resetCheckers(self):
+        for c in self._checkers:
+            c.reset()
+
+
     def check(self, img):
         if len(self._images) == 0:
             # We need to call all the checkers to handle stateful ones
@@ -93,6 +99,7 @@ class CompositeImageCollector:
         
         for collect in self._checkers:
             if not collect(self._images, img):
+                self.resetCheckers()
                 if (None != self._next_collector) and (not self.collected()):
                     key = self._images.getFilelist()
                     return self._next_collector.check(self._images[key[0]])
@@ -115,7 +122,12 @@ class SingleImageCollector(CompositeImageCollector):
         return False
 
 
-class TimeStampChecker:
+class Checker:
+    def reset(self):
+        pass
+
+
+class TimeStampChecker(Checker):
     """ Checks if consequetive images are shot within 'maxdiff' sec.
         5DMarkII records the time of shot when it was started. The shot is ended +exposure_time
         second later. This checker test the time difference between finishing image N and
@@ -140,9 +152,14 @@ class TimeStampChecker:
         return False
 
 
-class AEBChecker:
+class AEBChecker(Checker):
     def __init__(self):
+        self.reset()
+        
+        
+    def reset(self):
         self.ebvs = list()
+    
     
     def __call__(self, comp_img, s_img):
         
