@@ -276,7 +276,7 @@ class DirectoryExpander(Expander):
         if self.isExpanded():
             return
         
-        for fn in os.listdir(self.path):
+        for fn in sorted(os.listdir(self.path)):
             fullpath = os.path.join(self.path, fn)
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, fn)
@@ -443,7 +443,7 @@ class TreeCtrlFrame(wx.Frame):
 
 class TestExpandersApp(wx.App):
     def OnInit(self):
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/media/misc/MM/Filmek/Nepal/CR2')
+        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/') #media/misc/MM/Filmek/Nepal/CR2')
         frame.Show(True)
         self.SetTopWindow(frame)
         return True
