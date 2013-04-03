@@ -51,7 +51,8 @@ class HDRConfigPanel(wx.Panel):
         return (("targetDir", "Target directory:", self.onTargetDir, self.hdr_config.GetTargetDir()),
                 ("rawExt", "Raw extension:", self.onRawExtension, self.hdr_config.GetRawExt()),
                 ("imageExt", "Output image ext:", self.onImageExt, self.hdr_config.GetImageExt()),
-                ("prefix", "Output prefix:", self.onPrefix, self.hdr_config.GetPrefix()))
+                ("prefix", "Output prefix:", self.onPrefix, self.hdr_config.GetPrefix()),
+                ("maxdiff", "Maxdiff:", self.onMaxdiff, str(self.hdr_config.GetCheckers()[0].maxdiff)))
 
 
     def setConfig(self, hdr_config, path):
@@ -99,7 +100,8 @@ class HDRConfigPanel(wx.Panel):
         
     
     def onRawExtension(self, evt):
-        pass
+        value = self.rawExt.GetValue()
+        self.hdr_config.SetRawExt(value)
     
     
     def onImageExt(self,evt):
@@ -109,6 +111,11 @@ class HDRConfigPanel(wx.Panel):
     def onPrefix(self,evt):
         pass
         
+    
+    def onMaxdiff(self, evt):
+        value = int(self.maxdiff.GetValue())
+        self.hdr_config.GetCheckers()[0].maxdiff = value
+        print 'onMaxdiff'
             
 class HDRConfigDialog(wx.Dialog):
     def __init__(self, *args, **kw):
@@ -282,14 +289,13 @@ class DirectoryExpander(Expander):
         
             prefix = hdr_config.GetPrefix()
             hdr_path = hdr_config.GetTargetDir()
-            for fn, seq in enumerate(hdrs):
+            for fn, seq in enumerate(reversed(hdrs)):
                 seq_name = prefix + "_%d" % fn
                 seq_path = os.path.join(hdr_path, prefix + ("_%d" % fn))
                 child = self.tree.AppendItem(self.itemID, seq_path)
                 ImageSequenceExpander(self.tree, seq_path, child, seq)
         except IOError: # handling the case when there are no raw files
             print "No RAW input to parse in %s" % self.path
-            pass
             
             self.expanded = True
  
@@ -324,9 +330,9 @@ class ImageSequenceExpander(Expander):
         # TODO: Minden egyes alkalommal újra kell számolni
         if self.isExpanded():
             return
-        for img in self.seq:
-            child = self.tree.AppendItem(self.itemID, img.name(basename=True))
-            ImageExpander(self.tree, img, child)
+        for img in sorted(self.seq):
+            child = self.tree.AppendItem(self.itemID, os.path.basename(img))
+            ImageExpander(self.tree, child, self.seq[img])
             
         self.expanded = True
         
@@ -417,6 +423,7 @@ class TreeCtrlFrame(wx.Frame):
     def onClickItem(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
+        self.path = data.path
         
         data.handleClick(self)
         
