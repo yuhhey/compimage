@@ -230,26 +230,9 @@ class DirectoryExpanderPopup(wx.Menu):
         self.parent_window = parent_window
         
     def onHDRConf(self, evt):
+        print evt, type(evt)
+        raise NotImplementedError  
         
-        hdr_config_expander = self.dir_expander.hasChildWithType(HDRConfigExpander)
-        if hdr_config_expander == None:
-            hdr_config_expander = self.dir_expander.findTypeAbove(HDRConfigExpander)
-            if hdr_config_expander == None:
-                hdr_config = CompositeImage.HDRConfig('/tmp')
-                
-            else: #Létezik egy parentnél már new_hdr_config, úgyhogy azt kell leklónoznunk
-                hdr_config = copy.deepcopy(hdr_config_expander.HDRConfig)
-                
-                
-            # TODO: ez itt nem jó helyen van. Akkor is létrehozza a HDR_Config node-ot, ha 'cancelt' nyomok a dialogboxban.
-            child = self.dir_expander.tree.AppendItem(self.dir_expander.itemID, 'HDR_Config')
-            hdr_config_expander = HDRConfigExpander(self.dir_expander.tree, child, hdr_config)
-        else:
-            hdr_config = hdr_config_expander.HDRConfig
-        # Itt már biztosan van hdr_config_expander, úgyhogy azt kell elkezdeni módosítani.
-        dialog = HDRConfigDialog(self.parent_window, title=self.dir_expander.path, hdr_config=hdr_config)
-        dialog.ShowModal()
-
     def onPanoramaConf(self, evt):
         print evt, type(evt)
         raise NotImplementedError
@@ -290,10 +273,13 @@ class DirectoryExpander(Expander):
             prefix = hdr_config.GetPrefix()
             hdr_path = hdr_config.GetTargetDir()
             for fn, seq in enumerate(reversed(hdrs)):
-                seq_name = prefix + "_%d" % fn
-                seq_path = os.path.join(hdr_path, prefix + ("_%d" % fn))
-                child = self.tree.AppendItem(self.itemID, seq_path)
-                ImageSequenceExpander(self.tree, seq_path, child, seq)
+                actual_prefix = prefix + "_%d" % fn  
+                target_path = os.path.join(hdr_path, actual_prefix)
+                child = self.tree.AppendItem(self.itemID, target_path)
+                ImageSequenceExpander(self.tree, target_path, child, seq)
+                hdr_config_per_image = copy.deepcopy(hdr_config)
+                hdr_config_per_image.SetPrefix(actual_prefix)
+                hdr_config_dict[target_path] = hdr_config_per_image
         except IOError: # handling the case when there are no raw files
             print "No RAW input to parse in %s" % self.path
             
@@ -313,14 +299,33 @@ class ImageExpander(Expander):
         Expander.__init__(self,tree, itemID)
         self.image = image
 
+
+class ImageSequenceExpanderPopup(wx.Menu):
+    def __init__(self, expander):
+        wx.Menu.__init__(self)
+        self.expander = expander
+        item = wx.MenuItem(self, wx.NewId(), "Generate")
+        self.AppendItem(item)
+        self.Bind(wx.EVT_MENU, self.onGenerate, item)
+        
+    def onGenerate(self, evt):
+        seq = self.expander.seq
+        path = self.expander.target_path
+        print 'onGenerate', path    
+        hdr_config = hdr_config_dict[path]
+        
+        gen = CompositeImage.HDRGenerator()
+        gen(seq, hdr_config)
+        
 class ImageSequenceExpander(Expander):
-    def __init__(self, tree, path, itemID, img_seq):
+    def __init__(self, tree, target_path, itemID, img_seq):
         Expander.__init__(self, tree, itemID)
-        self.path=path
+        self.target_path=target_path
         self.seq = img_seq
         if len(self.seq) > 0:
             tree.SetItemHasChildren(itemID)
             
+        self.path = img_seq.getFilelist()[0]
         self.expanded = False
     
     def isExpanded(self):
@@ -336,6 +341,14 @@ class ImageSequenceExpander(Expander):
             
         self.expanded = True
         
+    def handleClick(self, control):
+        hdr_config = hdr_config_dict[self.target_path]
+        control.hdrconfig_panel.setConfig(hdr_config, self.path)
+        
+    def getPopupMenu(self, parent_window):
+        return ImageSequenceExpanderPopup(self)
+    
+    
 class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
     def __init__(self):
@@ -443,7 +456,7 @@ class TreeCtrlFrame(wx.Frame):
 
 class TestExpandersApp(wx.App):
     def OnInit(self):
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/') #media/misc/MM/Filmek/Nepal/CR2')
+        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/media/misc/MM/Filmek/Nepal/CR2')
         frame.Show(True)
         self.SetTopWindow(frame)
         return True
