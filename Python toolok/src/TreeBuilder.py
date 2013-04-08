@@ -7,32 +7,6 @@ import CompositeImage
 import copy
 
 
-class MyPopupMenu(wx.Menu):
-    def __init__(self, WinName):
-        wx.Menu.__init__(self)
-
-        self.WinName = WinName
-        item = wx.MenuItem(self, wx.NewId(), "Item One")
-        self.AppendItem(item)
-        self.Bind(wx.EVT_MENU, self.OnItem1, item)
-        item = wx.MenuItem(self, wx.NewId(),"Item Two")
-        self.AppendItem(item)
-        self.Bind(wx.EVT_MENU, self.OnItem2, item)
-        item = wx.MenuItem(self, wx.NewId(),"Item Three")
-        self.AppendItem(item)
-        self.Bind(wx.EVT_MENU, self.OnItem3, item)
-
-    def OnItem1(self, event):
-        print dir(event)
-        print "Item One selected in the %s window"%self.WinName
-
-    def OnItem2(self, event):
-        print "Item Two selected in the %s window"%self.WinName
-
-    def OnItem3(self, event):
-        print "Item Three selected in the %s window"%self.WinName
-
-
 class HDRConfigPanel(wx.Panel):
     
     def __init__(self, *args, **kw):
@@ -116,7 +90,8 @@ class HDRConfigPanel(wx.Panel):
         value = int(self.maxdiff.GetValue())
         self.hdr_config.GetCheckers()[0].maxdiff = value
         print 'onMaxdiff'
-            
+
+
 class HDRConfigDialog(wx.Dialog):
     def __init__(self, *args, **kw):
         self.hdr_config = kw['hdr_config']
@@ -160,6 +135,20 @@ class HDRConfigDialog(wx.Dialog):
     def onCancel(self, evt):
         self.Destroy()
 
+
+class ExpanderPopup(wx.Menu):
+    def __init__(self):
+        wx.Menu.__init__(self)
+    def addItem(self, label, callback):
+        item = wx.MenuItem(self, wx.NewId(), label)
+        self.AppendItem(item)
+        self.Bind(wx.EVT_MENU, callback, item)
+        return item
+    
+    def buildMenu(self, items):
+        for l, c in items: 
+            self.addItem(l, c)    
+
     
 class Expander(object):
     # TODO: menu item kezelés az ImageSequenceExpanderPopup-ból.
@@ -168,13 +157,14 @@ class Expander(object):
         self.tree = tree
         self.itemID = itemID
         self.tree.SetPyData(itemID, self)
-    
         
+    
     def isExpanded(self):
         raise NotImplementedError
                             
     def expand(self, *arsg, **kwargs):
-        raise NotImplementedError
+        pass
+        #raise NotImplementedError
     
     def getPopupMenu(self, *args, **kwargs):
         raise NotImplementedError
@@ -217,20 +207,17 @@ class Expander(object):
         return self.findType(p, t)
         
             
-class DirectoryExpanderPopup(wx.Menu):
+class DirectoryExpanderPopup(ExpanderPopup):
     def __init__(self, parent_window, d_expander):
-        wx.Menu.__init__(self)
+        ExpanderPopup.__init__(self)
         self.dir_expander = d_expander
-        item = wx.MenuItem(self, wx.NewId(), "HDR config")
-        self.AppendItem(item)
-        self.Bind(wx.EVT_MENU, self.onHDRConf, item)
-        item = wx.MenuItem(self, wx.NewId(), "Panorama config")
-        self.AppendItem(item)
-        self.Bind(wx.EVT_MENU, self.onPanoramaConf, item)
-        item = wx.MenuItem(self, wx.NewId(), "Symlinks")
-        self.AppendItem(item)
-        self.Bind(wx.EVT_MENU, self.onSymlinks, item)
         
+        menu_items = [("HDR config", self.onHDRConf),
+                      ("Panorama config", self.onPanoramaConf),
+                      ("Symlinks", self.onSymlinks)]
+        
+        self.buildMenu(menu_items)
+    
         self.parent_window = parent_window
         
     def onHDRConf(self, evt):
@@ -238,11 +225,22 @@ class DirectoryExpanderPopup(wx.Menu):
         raise NotImplementedError  
         
     def onPanoramaConf(self, evt):
-        print evt, type(evt)
-        raise NotImplementedError
+        tree = self.dir_expander.tree
+        itemID = self.dir_expander.itemID
+        for i in treeIterator(tree, itemID):
+            data = tree.GetPyData(i)
+            data.expand()
+            try:
+                path = data.path
+                print path
+            except AttributeError:
+                pass
 
     def onSymlinks(self, evt):
-        print evt, type(evt)
+        print 'onSymlinks'
+        for item in self.dir_expander:
+            print item.path
+        
  
 class DirectoryExpander(Expander):
     def __init__(self, tree, path, itemID = None):
@@ -289,7 +287,7 @@ class DirectoryExpander(Expander):
         except IOError: # handling the case when there are no raw files
             print "No RAW input to parse in %s" % self.path
             
-            self.expanded = True
+        self.expanded = True
  
     def getPopupMenu(self, parent_window):
         return DirectoryExpanderPopup(parent_window, self)
@@ -306,7 +304,7 @@ class ImageExpander(Expander):
         self.image = image
 
 
-class ImageSequenceExpanderPopup(wx.Menu):
+class ImageSequenceExpanderPopup(ExpanderPopup):
     
 
     def __init__(self, expander):
@@ -314,29 +312,15 @@ class ImageSequenceExpanderPopup(wx.Menu):
         self.expander = expander
         menu_items = [("Generate", self.onGenerate),
                       ("Symlinks", self.onCreateSymlink)]
-        
-        for l, c in menu_items: 
-            self.addItem(l, c)
+        self.buildMenu(menu_items)
 
-    def addItem(self, label, callback):
-        item = wx.MenuItem(self, wx.NewId(), label)
-        self.AppendItem(item)
-        self.Bind(wx.EVT_MENU, callback, item)
-        return item
-        
-
-    def executeGen(self, evt, gen):
-        seq = self.expander.seq
-        path = self.expander.target_path
-        print 'onGenerate', path
-        hdr_config = hdr_config_dict[path]
-        gen(seq, hdr_config)
-
+    
     def onGenerate(self, evt):
         self.executeGen(evt, CompositeImage.HDRGenerator())
         
     def onCreateSymlink(self,evt):
         self.executeGen(evt, CompositeImage.SymlinkGenerator())
+
         
 class ImageSequenceExpander(Expander):
     def __init__(self, tree, target_path, itemID, img_seq):
@@ -346,7 +330,7 @@ class ImageSequenceExpander(Expander):
         if len(self.seq) > 0:
             tree.SetItemHasChildren(itemID)
             
-        self.path = img_seq.getFilelist()[0]
+        #self.path = img_seq.getFilelist()[0]
         self.expanded = False
     
     def isExpanded(self):
@@ -361,7 +345,8 @@ class ImageSequenceExpander(Expander):
             ImageExpander(self.tree, child, self.seq[img])
             
         self.expanded = True
-        
+    
+    # TODO: ez itt már HDR és nem ImageSequence
     def handleClick(self, control):
         hdr_config = hdr_config_dict[self.target_path]
         control.hdrconfig_panel.setConfig(hdr_config, self.path)
@@ -475,9 +460,18 @@ class TreeCtrlFrame(wx.Frame):
             print k, hdr_config_dict[k]
 
 
+def treeIterator(tree, item):
+    yield item
+    child, cookie = tree.GetFirstChild(item)
+    while child.IsOk():
+        for c in treeIterator(tree, child):
+            yield c
+        child, cookie = tree.GetNextChild(item, cookie)
+
+
 class TestExpandersApp(wx.App):
     def OnInit(self):
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/storage/Kepek/kepek_eredeti/CR2/2012_04_02') #media/misc/MM/Filmek/Nepal/CR2')
+        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/media/misc/MM/Filmek/Nepal/CR2')#storage/Kepek/kepek_eredeti/CR2/2012_04_02') #
         frame.Show(True)
         self.SetTopWindow(frame)
         return True
