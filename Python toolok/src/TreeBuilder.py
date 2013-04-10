@@ -209,7 +209,8 @@ class Expander(object):
             
     def executeGen(self, dummyarg):
         pass
-            
+
+           
 class DirectoryExpanderPopup(ExpanderPopup):
     def __init__(self, parent_window, d_expander):
         ExpanderPopup.__init__(self)
@@ -229,25 +230,16 @@ class DirectoryExpanderPopup(ExpanderPopup):
         raise NotImplementedError  
         
     def onPanoramaConf(self, evt):
-        tree = self.dir_expander.tree
-        itemID = self.dir_expander.itemID
-        for i in treeIterator(tree, itemID):
-            data = tree.GetPyData(i)
-            data.expand()
-            try:
-                path = data.path
-                print path
-            except AttributeError:
-                pass
+        raise NotImplementedError
 
 
     def onSymlinks(self, evt):
-        print 'onSymlinks'
-        self.dir_expander.onSymlink()
+        self.dir_expander.genSymlink()
         
     def onHDRGen(self,evt):
-        self.dir_expander.onHDRGenerate()
- 
+        self.dir_expander.genHDR()
+
+
 class DirectoryExpander(Expander):
     def __init__(self, tree, path, itemID = None):
         #FIXME: turn it to assert
@@ -318,10 +310,10 @@ class DirectoryExpander(Expander):
             data.executeGen(gen)
             
             
-    def onSymlink(self):
+    def genSymlink(self):
         self.cmdExec(CompositeImage.SymlinkGenerator())
             
-    def onHDRGenerate(self):
+    def genHDR(self):
         self.cmdExec(CompositeImage.HDRGenerator())
 
 
@@ -359,9 +351,11 @@ class ImageSequenceExpander(Expander):
             
         #self.path = img_seq.getFilelist()[0]
         self.expanded = False
+ 
     
     def isExpanded(self):
         return self.expanded
+ 
     
     def expand(self):
         # TODO: Minden egyes alkalommal újra kell számolni
@@ -374,9 +368,12 @@ class ImageSequenceExpander(Expander):
         self.expanded = True
     
     # TODO: ez itt már HDR és nem ImageSequence
+    
+
     def handleClick(self, control):
         hdr_config = hdr_config_dict[self.target_path]
         control.hdrconfig_panel.setConfig(hdr_config, self.path)
+    
         
     def getPopupMenu(self, parent_window):
         return ImageSequenceExpanderPopup(self)
