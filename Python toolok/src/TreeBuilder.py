@@ -336,7 +336,7 @@ class ImageSequenceExpanderPopup(ExpanderPopup):
     def onCreateSymlink(self,evt):
         self.expander.executeGen(CompositeImage.SymlinkGenerator())
 
-        
+
 class ImageSequenceExpander(Expander):
     def __init__(self, tree, target_path, itemID, img_seq):
         Expander.__init__(self, tree, itemID)
@@ -502,7 +502,7 @@ def treeIterator(tree, item):
 
 class TestExpandersApp(wx.App):
     def OnInit(self):
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/media/misc/MM/Filmek/Nepal/CR2')#storage/Kepek/kepek_eredeti/CR2/2012_04_02') #
+        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/')#media/misc/MM/Filmek/Nepal/CR2')#storage/Kepek/kepek_eredeti/CR2/2012_04_02') #
         frame.Show(True)
         self.SetTopWindow(frame)
         return True
