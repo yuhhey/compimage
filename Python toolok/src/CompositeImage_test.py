@@ -42,11 +42,11 @@ si_mock_data = makehash()
 
 # using this function assume that Composite.SingleImage object handles attributes properly.
 # It is a simple proxy in this context, hence it is not a strong assumption.
-#def setUpModule():
-for fn in file_list:
-    si = CompositeImage.SingleImage(fn)
-    for t in tag_list:
-        si_mock_data[fn][t] = si[t]
+def PistisetUpModule():
+    for fn in file_list:
+        si = CompositeImage.SingleImage(fn)
+        for t in tag_list:
+            si_mock_data[fn][t] = si[t]
     
     
 class SingleImageTest(unittest.TestCase):
@@ -215,6 +215,12 @@ class CollectHDRStrategyTest(unittest.TestCase):
         hdrs, sic = self.collect_HDR_strategy.parseFileList(glob.glob("/home/smb/tmp/IMG_640[6789].CR2"))
         
         self.assertEqual(0, len(hdrs), 'False positive')
+        
+    def test_Nepal17425865FalsePositive(self):
+        """ 2 különböző géppel egyidőben keszülő, de más exposure bias beállítással készített képek"""
+        hdrs, sic = self.collect_HDR_strategy.parseFileList(["/media/MM/Filmek/Nepal/CR2/2012_03_26/IMG_1742.CR2",
+                                                            "/media/MM/Filmek/Nepal/CR2/2012_03_26/IMG_5865.CR2"])
+        self.assertEqual(0, len(hdrs), 'Nepal False positive')
      
     
 class GeneratorTest(unittest.TestCase):

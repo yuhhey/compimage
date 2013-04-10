@@ -207,6 +207,9 @@ class Expander(object):
         return self.findType(p, t)
         
             
+    def executeGen(self, dummyarg):
+        pass
+            
 class DirectoryExpanderPopup(ExpanderPopup):
     def __init__(self, parent_window, d_expander):
         ExpanderPopup.__init__(self)
@@ -238,9 +241,7 @@ class DirectoryExpanderPopup(ExpanderPopup):
 
     def onSymlinks(self, evt):
         print 'onSymlinks'
-        for item in self.dir_expander:
-            print item.path
-        
+        self.dir_expander.onSymlink()
  
 class DirectoryExpander(Expander):
     def __init__(self, tree, path, itemID = None):
@@ -257,6 +258,7 @@ class DirectoryExpander(Expander):
         
     def isExpanded(self):
         return self.expanded
+ 
         
     def expand(self):
 
@@ -289,6 +291,7 @@ class DirectoryExpander(Expander):
             
         self.expanded = True
  
+ 
     def getPopupMenu(self, parent_window):
         return DirectoryExpanderPopup(parent_window, self)
     
@@ -296,6 +299,17 @@ class DirectoryExpander(Expander):
     def handleClick(self, control):
         hdr_config = hdr_config_dict[self.path]
         control.hdrconfig_panel.setConfig(hdr_config, self.path)
+
+
+    def executeGen(self,gen):
+        self.expand()
+
+    def onSymlink(self):
+        tree = self.tree
+        itemID = self.itemID
+        for i in treeIterator(tree, itemID):
+            data = tree.GetPyData(i)
+            data.executeGen(CompositeImage.SymlinkGenerator())
 
 
 class ImageExpander(Expander):
@@ -306,7 +320,7 @@ class ImageExpander(Expander):
 
 class ImageSequenceExpanderPopup(ExpanderPopup):
     
-
+    #TODO: Megnézni, hogy nem elég-e az expander.executeGen függvényt átadni paraméterként.
     def __init__(self, expander):
         wx.Menu.__init__(self)
         self.expander = expander
@@ -316,10 +330,10 @@ class ImageSequenceExpanderPopup(ExpanderPopup):
 
     
     def onGenerate(self, evt):
-        self.executeGen(evt, CompositeImage.HDRGenerator())
+        self.expander.executeGen(CompositeImage.HDRGenerator())
         
     def onCreateSymlink(self,evt):
-        self.executeGen(evt, CompositeImage.SymlinkGenerator())
+        self.expander.executeGen(CompositeImage.SymlinkGenerator())
 
         
 class ImageSequenceExpander(Expander):
@@ -354,6 +368,13 @@ class ImageSequenceExpander(Expander):
     def getPopupMenu(self, parent_window):
         return ImageSequenceExpanderPopup(self)
     
+
+    def executeGen(self, gen):
+        seq = self.seq
+        path = self.target_path
+        hdr_config = hdr_config_dict[path]
+        gen(seq, hdr_config)
+
     
 class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
