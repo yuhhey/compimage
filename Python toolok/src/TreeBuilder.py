@@ -217,7 +217,8 @@ class DirectoryExpanderPopup(ExpanderPopup):
         
         menu_items = [("HDR config", self.onHDRConf),
                       ("Panorama config", self.onPanoramaConf),
-                      ("Symlinks", self.onSymlinks)]
+                      ("Symlinks", self.onSymlinks),
+                      ("Generate HDR", self.onHDRGen)]
         
         self.buildMenu(menu_items)
     
@@ -243,6 +244,9 @@ class DirectoryExpanderPopup(ExpanderPopup):
     def onSymlinks(self, evt):
         print 'onSymlinks'
         self.dir_expander.onSymlink()
+        
+    def onHDRGen(self,evt):
+        self.dir_expander.onHDRGenerate()
  
 class DirectoryExpander(Expander):
     def __init__(self, tree, path, itemID = None):
@@ -305,12 +309,20 @@ class DirectoryExpander(Expander):
     def executeGen(self,gen):
         self.expand()
 
-    def onSymlink(self):
+
+    def cmdExec(self,gen):
         tree = self.tree
         itemID = self.itemID
         for i in treeIterator(tree, itemID):
             data = tree.GetPyData(i)
-            data.executeGen(CompositeImage.SymlinkGenerator())
+            data.executeGen(gen)
+            
+            
+    def onSymlink(self):
+        self.cmdExec(CompositeImage.SymlinkGenerator())
+            
+    def onHDRGenerate(self):
+        self.cmdExec(CompositeImage.HDRGenerator())
 
 
 class ImageExpander(Expander):
