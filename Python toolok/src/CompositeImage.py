@@ -81,6 +81,12 @@ class CompositeImageCollector:
     def collected(self):
         return len(self._images) > 1
 
+
+    def resetCheckers(self):
+        for c in self._checkers:
+            c.reset()
+
+
     def check(self, img):
         if len(self._images) == 0:
             # We need to call all the checkers to handle stateful ones
@@ -93,6 +99,7 @@ class CompositeImageCollector:
         
         for collect in self._checkers:
             if not collect(self._images, img):
+                self.resetCheckers()
                 if (None != self._next_collector) and (not self.collected()):
                     key = self._images.getFilelist()
                     return self._next_collector.check(self._images[key[0]])
@@ -115,7 +122,12 @@ class SingleImageCollector(CompositeImageCollector):
         return False
 
 
-class TimeStampChecker:
+class Checker:
+    def reset(self):
+        pass
+
+
+class TimeStampChecker(Checker):
     """ Checks if consequetive images are shot within 'maxdiff' sec.
         5DMarkII records the time of shot when it was started. The shot is ended +exposure_time
         second later. This checker test the time difference between finishing image N and
@@ -128,7 +140,7 @@ class TimeStampChecker:
         self.maxdiff = maxdiff
     def __call__(self, comp_img, simg):
         """ Checks if the images represented by their metadata in 'adict' where all taken within
-            'maxtimediff=45sec'. Returns True if yes, false otherwise. """
+            'maxtimediff sec'. Returns True if yes, false otherwise. """
         maxtimediff = datetime.timedelta(seconds=self.maxdiff)
         datum_pair = timestampFromMetadata(simg)
         datumshot = datum_pair[0]
@@ -140,12 +152,17 @@ class TimeStampChecker:
         return False
 
 
-class AEBChecker:
+class AEBChecker(Checker):
     def __init__(self):
+        self.reset()
+            
+    def reset(self):
         self.ebvs = list()
-    
+       
     def __call__(self, comp_img, s_img):
         
+        if 2 != s_img['Exif.Photo.ExposureMode']:
+            return False
         ebv = s_img['Exif.Photo.ExposureBiasValue']
         if len(self.ebvs) != 0:
             #ebv = comp_img[key][Sequence.METADATA]['Exif.Photo.ExposureBiasValue'].value
@@ -155,6 +172,20 @@ class AEBChecker:
         self.ebvs.append(ebv)
         return True
     
+
+class SameCameraChecker(Checker):
+    def __init__(self):
+        self.reset()
+        
+    def reset(self):
+        self.model = ""
+        
+    def __call__(self, comp_img, s_img):
+        model = s_img["Exif.Image.Model"]
+        if "" == self.model:
+            self.model = model
+            
+        return self.model == model
 
 class CollectHDRStrategy:
     def readFiles(self, fl):
@@ -177,23 +208,23 @@ class CollectHDRStrategy:
         cic.setNextCollector(sic)
         hdrs = []
         for si in imgs:
-            print si.name()
             if not cic.check(si):
                 if cic.collected():
-                    hdrs.insert(0, cic)
+                    hdrs.insert(0, cic.getCompImage())
                 cic = CompositeImageCollector(hdr_config.GetCheckers())
                 cic.check(si)
                 cic.setNextCollector(sic)
         
         if cic.collected():
-            hdrs.insert(0, cic)
+            hdrs.insert(0, cic.getCompImage())
         return hdrs, sic
     
     def parseDir(self, d, hdr_config=None):
         if hdr_config == None:
             hdr_config = HDRConfig(os.getcwd())
         
-        fl = [fn for fn in glob.glob(d)]
+        path_with_wildcard = os.path.join(d, "*%s" % hdr_config.GetRawExt())
+        fl = [fn for fn in glob.glob(path_with_wildcard)]
         return self.parseFileList(fl, hdr_config)
  
       
@@ -228,7 +259,7 @@ class SymlinkGenerator:
 
 class HDRConfig():
     """Contains all the configuration data used in HDR sequence handling and final image generation"""
-    def __init__(self,targetdir, raw_ext='.CR2', hdr_ext='.TIF', prefix='HDR', checkers=[TimeStampChecker(7), AEBChecker()]):
+    def __init__(self,targetdir, raw_ext='.CR2', hdr_ext='.TIF', prefix='HDR', checkers=[TimeStampChecker(7), AEBChecker(), SameCameraChecker()]):
         self.SetTargetDir(targetdir)
         self.SetRawExt(raw_ext)
         self.SetImageExt(hdr_ext)
