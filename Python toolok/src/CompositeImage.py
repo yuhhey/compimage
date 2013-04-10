@@ -140,7 +140,7 @@ class TimeStampChecker(Checker):
         self.maxdiff = maxdiff
     def __call__(self, comp_img, simg):
         """ Checks if the images represented by their metadata in 'adict' where all taken within
-            'maxtimediff=45sec'. Returns True if yes, false otherwise. """
+            'maxtimediff sec'. Returns True if yes, false otherwise. """
         maxtimediff = datetime.timedelta(seconds=self.maxdiff)
         datum_pair = timestampFromMetadata(simg)
         datumshot = datum_pair[0]
@@ -155,14 +155,14 @@ class TimeStampChecker(Checker):
 class AEBChecker(Checker):
     def __init__(self):
         self.reset()
-        
-        
+            
     def reset(self):
         self.ebvs = list()
-    
-    
+       
     def __call__(self, comp_img, s_img):
         
+        if 2 != s_img['Exif.Photo.ExposureMode']:
+            return False
         ebv = s_img['Exif.Photo.ExposureBiasValue']
         if len(self.ebvs) != 0:
             #ebv = comp_img[key][Sequence.METADATA]['Exif.Photo.ExposureBiasValue'].value
@@ -172,6 +172,20 @@ class AEBChecker(Checker):
         self.ebvs.append(ebv)
         return True
     
+
+class SameCameraChecker(Checker):
+    def __init__(self):
+        self.reset()
+        
+    def reset(self):
+        self.model = ""
+        
+    def __call__(self, comp_img, s_img):
+        model = s_img["Exif.Image.Model"]
+        if "" == self.model:
+            self.model = model
+            
+        return self.model == model
 
 class CollectHDRStrategy:
     def readFiles(self, fl):
@@ -194,7 +208,6 @@ class CollectHDRStrategy:
         cic.setNextCollector(sic)
         hdrs = []
         for si in imgs:
-            print si.name()
             if not cic.check(si):
                 if cic.collected():
                     hdrs.insert(0, cic.getCompImage())
@@ -246,7 +259,7 @@ class SymlinkGenerator:
 
 class HDRConfig():
     """Contains all the configuration data used in HDR sequence handling and final image generation"""
-    def __init__(self,targetdir, raw_ext='.CR2', hdr_ext='.TIF', prefix='HDR', checkers=[TimeStampChecker(7), AEBChecker()]):
+    def __init__(self,targetdir, raw_ext='.CR2', hdr_ext='.TIF', prefix='HDR', checkers=[TimeStampChecker(7), AEBChecker(), SameCameraChecker()]):
         self.SetTargetDir(targetdir)
         self.SetRawExt(raw_ext)
         self.SetImageExt(hdr_ext)
