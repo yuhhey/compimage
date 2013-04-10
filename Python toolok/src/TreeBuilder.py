@@ -241,8 +241,11 @@ class DirectoryExpanderPopup(wx.Menu):
         dialog.ShowModal()
 
     def onPanoramaConf(self, evt):
-        print evt, type(evt)
-        raise NotImplementedError
+        tree_item = self.dir_expander.itemID
+        tree = self.dir_expander.tree
+        for i in iterchildren(tree, tree_item):
+            p = tree.GetPyData(i).path
+            print p
 
  
 class DirectoryExpander(Expander):
@@ -341,7 +344,16 @@ class TreeDict:
 
     def keys(self):
         return self.d.keys()
-               
+     
+
+def iterchildren(treectrl, node):
+    cid, citem = treectrl.GetFirstChild(node)
+    while cid.IsOk():
+        for c in iterchildren(treectrl, cid):
+            yield c
+        yield cid
+        cid, citem = treectrl.GetNextChild(node, citem)
+          
 
 class TreeCtrlFrame(wx.Frame):
     
