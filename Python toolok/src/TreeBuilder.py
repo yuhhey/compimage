@@ -397,7 +397,7 @@ class ImageSequenceExpander(Expander):
     
     def handleClick(self, control):
         hdr_config = hdr_config_dict[self.target_path]
-        control.hdrconfig_panel.setConfig(hdr_config, self.path)
+        control.hdrconfig_panel.setConfig(hdr_config, self.target_path)
         
     def getPopupMenu(self, parent_window):
         return ImageSequenceExpanderPopup(self)
@@ -526,9 +526,10 @@ class TreeCtrlFrame(wx.Frame):
     def onClickItem(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
+        data.handleClick(self)
         self.path = data.path
         
-        data.handleClick(self)
+        
         
     def onRightClick(self, e):
         item = e.GetItem()
