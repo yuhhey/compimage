@@ -5,6 +5,7 @@ import os
 import errno
 import CompositeImage
 import copy
+import threading as TH
 
 
 class HDRConfigPanel(wx.Panel):
@@ -78,11 +79,12 @@ class HDRConfigPanel(wx.Panel):
     
     
     def onImageExt(self,evt):
-        pass
+        value = self.imageExt.GetValue()
+        self.hdr_config.SetImageExt(value)
     
     
     def onPrefix(self,evt):
-        value = self.rawExt.GetValue()
+        value = self.prefix.GetValue()
         self.hdr_config.SetPrefix(value)
         
     
@@ -135,6 +137,43 @@ class HDRConfigDialog(wx.Dialog):
     def onCancel(self, evt):
         self.Destroy()
 
+
+class Command:
+    def __init__(self, notify_window):
+        self._notify_window = notify_window
+        self._want_abort = 0
+    
+    def Finished(self,data):
+        pass
+        #wx.PostEvent(self._notify_window, data)
+        
+    
+    def abort(self):    
+        self._want_abort = 1
+        
+        
+    def abortWanted(self):
+        return self._want_abort != 0
+
+
+class WorkerThread(TH.Thread):
+    """Worker Thread Class."""
+    def __init__(self, cmd):
+        """Init Worker Thread Class."""
+        TH.Thread.__init__(self)
+        self._cmd = cmd
+        # This starts the thread running on creation, but you could
+        # also make the GUI thread responsible for calling this
+        self.start()
+
+
+    def run(self):
+        """Run Worker Thread."""
+        self._cmd()
+        
+        
+    def abort(self):
+        self._cmd.abort()
 
 class ExpanderPopup(wx.Menu):
     def __init__(self):
@@ -240,6 +279,18 @@ class DirectoryExpanderPopup(ExpanderPopup):
         self.dir_expander.genHDR()
 
 
+class recursiveCommand(Command):
+    def __init__(self, tree, itemID, gen):
+        self.tree = tree
+        self.itemID = itemID
+        self.gen = gen
+        
+    def __call__(self):
+        for i in treeIterator(self.tree, self.itemID):
+            data = self.tree.GetPyData(i)
+            data.executeGen(self.gen)
+
+
 class DirectoryExpander(Expander):
     def __init__(self, tree, path, itemID = None):
         #FIXME: turn it to assert
@@ -262,6 +313,7 @@ class DirectoryExpander(Expander):
         if self.isExpanded():
             return
         
+        self.tree.processingStarted(self.itemID)
         for fn in sorted(os.listdir(self.path)):
             fullpath = os.path.join(self.path, fn)
             if os.path.isdir(fullpath):
@@ -272,7 +324,12 @@ class DirectoryExpander(Expander):
         hdr_config = hdr_config_dict[self.path]
         try: 
             hdrs, single_images = CompositeImage.CollectHDRStrategy().parseDir(self.path, hdr_config)
-        
+            item_text = self.tree.GetItemText(self.itemID)
+            n_hdrs = len(hdrs)
+            if n_hdrs != 0:
+                item_text = item_text + "(%d hdrs)" % n_hdrs
+                self.tree.SetItemText(self.itemID, item_text)
+            
             prefix = hdr_config.GetPrefix()
             hdr_path = hdr_config.GetTargetDir()
             for fn, seq in enumerate(reversed(hdrs)):
@@ -285,6 +342,7 @@ class DirectoryExpander(Expander):
                 hdr_config_dict[target_path] = hdr_config_per_image
         except IOError: # handling the case when there are no raw files
             print "No RAW input to parse in %s" % self.path
+        self.tree.clearState(self.itemID)
             
         self.expanded = True
  
@@ -303,11 +361,7 @@ class DirectoryExpander(Expander):
 
 
     def cmdExec(self,gen):
-        tree = self.tree
-        itemID = self.itemID
-        for i in treeIterator(tree, itemID):
-            data = tree.GetPyData(i)
-            data.executeGen(gen)
+        wt = WorkerThread(recursiveCommand(self.tree, self.itemID, gen))
             
             
     def genSymlink(self):
@@ -380,10 +434,12 @@ class ImageSequenceExpander(Expander):
     
 
     def executeGen(self, gen):
+        self.tree.processingStarted(self.itemID)
         seq = self.seq
         path = self.target_path
         hdr_config = hdr_config_dict[path]
         gen(seq, hdr_config)
+        self.tree.processingCompleted(self.itemID)
 
     
 class TreeDict:
@@ -433,16 +489,46 @@ def iterchildren(treectrl, node):
         cid, citem = treectrl.GetNextChild(node, citem)
           
 
+class TreeCtrlWithImages(wx.TreeCtrl):
+    def __init__(self, *args, **kwrds):
+        
+        wx.TreeCtrl.__init__(self, *args, **kwrds)
+        # bitmaps for progress indication.
+        self.il = wx.ImageList(16,16)
+        self.AssignImageList(self.il)
+        self.img_wip = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_OTHER, (16,16)))
+        self.img_ready = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_OTHER, (16,16)))
+        self.img_aborted = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_CROSS_MARK, wx.ART_OTHER, (16,16)))
+    
+    
+    def processingStarted(self, item):
+        self.SetItemImage(item, self.img_wip,wx.TreeItemIcon_Normal)
+        
+        
+    def processingCompleted(self, item):
+        self.SetItemImage(item, self.img_ready,wx.TreeItemIcon_Normal)
+        
+        
+    def processingFailed(self, item):
+        self.SetItemImage(item, self.img_aborted,wx.TreeItemIcon_Normal)
+        
+        
+    def clearState(self, item):
+        self.SetItemImage(item, -1,wx.TreeItemIcon_Normal)
+        
 class TreeCtrlFrame(wx.Frame):
     
     
     def __init__(self, parent, id, title, rootdir):
         
-        self.path = rootdir
+        
         
         wx.Frame.__init__(self, parent, id, title, wx.DefaultPosition, wx.Size(450, 350))
         panel = wx.Panel(self, -1)
-        self.tree = wx.TreeCtrl(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
+        self.tree = TreeCtrlWithImages(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
+        
+        
+        self.path = rootdir
         expander = DirectoryExpander(self.tree, rootdir)
         
         self.updatebutton = wx.Button(panel, label='Update')
@@ -456,7 +542,6 @@ class TreeCtrlFrame(wx.Frame):
         hdr_config_dict[rootdir] = CompositeImage.HDRConfig('/tmp')
         self.hdrconfig_panel = HDRConfigPanel(hdr_config=hdr_config_dict[rootdir],
                                               path=rootdir,
-                                              #hdr_config_dict=self.hdr_config_dict,
                                               parent=self)
         
         hsizer = wx.BoxSizer(wx.HORIZONTAL)

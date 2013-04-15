@@ -178,14 +178,14 @@ class SameCameraChecker(Checker):
         self.reset()
         
     def reset(self):
-        self.model = ""
+        self.sn = 0
         
     def __call__(self, comp_img, s_img):
-        model = s_img["Exif.Image.Model"]
-        if "" == self.model:
-            self.model = model
+        sn = s_img["Exif.Canon.SerialNumber"]
+        if 0 == self.sn:
+            self.sn = sn
             
-        return self.model == model
+        return self.sn == sn
 
 class CollectHDRStrategy:
     def readFiles(self, fl):
