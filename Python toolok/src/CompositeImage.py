@@ -265,6 +265,7 @@ class HDRConfig():
         self.SetImageExt(hdr_ext)
         self.SetPrefix(prefix)
         self.SetCheckers(checkers)
+        self.__index = 0
         
     def SetTargetDir(self, d):
         if d == "":
@@ -302,6 +303,11 @@ class HDRConfig():
     def GetImageSubdir(self):
         return self.GetImageExt()[1:]
 
+    def getIndex(self):
+        i = self.__index
+        self.__index += 1
+        return i
+        
     def __str__(self):
         return "HDRConfig:\n" + \
                "targetDir:%s\n" % self.GetTargetDir() + \
