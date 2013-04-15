@@ -21,7 +21,6 @@ class HDRConfigPanel(wx.Panel):
         super(HDRConfigPanel, self).__init__(*args, **kw)
         self.InitUI()
 
-    
     def inputFieldData(self):
         return (("targetDir", "Target directory:", self.onTargetDir, self.hdr_config.GetTargetDir()),
                 ("rawExt", "Raw extension:", self.onRawExtension, self.hdr_config.GetRawExt()),
@@ -29,13 +28,11 @@ class HDRConfigPanel(wx.Panel):
                 ("prefix", "Output prefix:", self.onPrefix, self.hdr_config.GetPrefix()),
                 ("maxdiff", "Maxdiff:", self.onMaxdiff, str(self.hdr_config.GetCheckers()[0].maxdiff)))
 
-
     def setConfig(self, hdr_config, path):
         self.hdr_config = copy.deepcopy(hdr_config)
         self.path = path
         for w, l, h, value in self.inputFieldData():
             getattr(self, w).SetValue(value)
-
 
     def createInputField(self, parent, label, handler, defValue= u''):
         cimke = wx.StaticText(parent, -1, label)
@@ -49,7 +46,6 @@ class HDRConfigPanel(wx.Panel):
         hs.Add(input_field, 2, wx.ALIGN_CENTER)
         return (input_field, hs)
 
-
     def InitUI(self):
         
         sb = wx.StaticBox(self, label='HDR config')
@@ -61,33 +57,26 @@ class HDRConfigPanel(wx.Panel):
             setattr(self, widget, input_field)
             
         self.SetSizer(sbs)
-        
-        
+                
     def updateHDRConfig(self):
         pass
-
 
     def onTargetDir(self, evt):
         value = self.targetDir.GetValue()
         self.hdr_config.SetTargetDir(value)
-            
-        
-    
+                
     def onRawExtension(self, evt):
         value = self.rawExt.GetValue()
         self.hdr_config.SetRawExt(value)
-    
     
     def onImageExt(self,evt):
         value = self.imageExt.GetValue()
         self.hdr_config.SetImageExt(value)
     
-    
     def onPrefix(self,evt):
         value = self.prefix.GetValue()
         self.hdr_config.SetPrefix(value)
         
-    
     def onMaxdiff(self, evt):
         value = int(self.maxdiff.GetValue())
         self.hdr_config.GetCheckers()[0].maxdiff = value
@@ -104,7 +93,6 @@ class HDRConfigDialog(wx.Dialog):
         self.panel = HDRConfigPanel(parent = self, hdr_config = hdr_config_work)
         self.InitUI(self.panel)
 
-        
     def InitUI(self, panel):
         
         hbox2 = wx.BoxSizer(wx.HORIZONTAL)
@@ -124,7 +112,6 @@ class HDRConfigDialog(wx.Dialog):
         okButton.Bind(wx.EVT_BUTTON, self.onOk)
         cancelButton.Bind(wx.EVT_BUTTON, self.onCancel)
             
-    
     def onOk(self,evt):
         self.hdr_config.SetTargetDir(self.panel.targetDir.GetValue())
         self.hdr_config.SetRawExt(self.panel.rawExt.GetValue())
@@ -133,7 +120,6 @@ class HDRConfigDialog(wx.Dialog):
         
         self.onCancel(evt)
                 
-    
     def onCancel(self, evt):
         self.Destroy()
 
@@ -147,10 +133,8 @@ class Command:
         pass
         #wx.PostEvent(self._notify_window, data)
         
-    
     def abort(self):    
         self._want_abort = 1
-        
         
     def abortWanted(self):
         return self._want_abort != 0
@@ -166,18 +150,18 @@ class WorkerThread(TH.Thread):
         # also make the GUI thread responsible for calling this
         self.start()
 
-
     def run(self):
         """Run Worker Thread."""
         self._cmd()
         
-        
     def abort(self):
         self._cmd.abort()
+
 
 class ExpanderPopup(wx.Menu):
     def __init__(self):
         wx.Menu.__init__(self)
+
     def addItem(self, label, callback):
         item = wx.MenuItem(self, wx.NewId(), label)
         self.AppendItem(item)
@@ -197,7 +181,6 @@ class Expander(object):
         self.itemID = itemID
         self.tree.SetPyData(itemID, self)
         
-    
     def isExpanded(self):
         raise NotImplementedError
                             
@@ -209,7 +192,6 @@ class Expander(object):
         raise NotImplementedError
     
     # TODO: megfontolandó, hogy ez különálló függvény legyen - e egy plusz tree paraméterrel
-
 
     def handleClick(self, control):
         raise NotImplementedError
@@ -224,12 +206,12 @@ class Expander(object):
         
         return None
     
-    
     def hasChildWithType(self, t):
         """ Checks if a child with the given type 't' exists"""
         return self.itemHasChildOfType(self.itemID, t)
     
     # TODO: megfontolandó, hogy ez különálló függvény legyen - e egy plusz tree paraméterrel
+
     def findType(self, item, t):
         if item.IsOk():
             pt = self.itemHasChildOfType(item, t)
@@ -239,13 +221,11 @@ class Expander(object):
         else:
             return None
         
-        
     def findTypeAbove(self, t):
         """Checks if a child in higher level in the tree of type 't' exists"""
         p = self.tree.GetItemParent(self.itemID)
         return self.findType(p, t)
         
-            
     def executeGen(self, dummyarg):
         pass
 
@@ -271,7 +251,6 @@ class DirectoryExpanderPopup(ExpanderPopup):
     def onPanoramaConf(self, evt):
         raise NotImplementedError
 
-
     def onSymlinks(self, evt):
         self.dir_expander.genSymlink()
         
@@ -289,6 +268,7 @@ class recursiveCommand(Command):
         for i in treeIterator(self.tree, self.itemID):
             data = self.tree.GetPyData(i)
             data.executeGen(self.gen)
+        TH.exit()
 
 
 class DirectoryExpander(Expander):
@@ -307,7 +287,6 @@ class DirectoryExpander(Expander):
     def isExpanded(self):
         return self.expanded
  
-        
     def expand(self):
 
         if self.isExpanded():
@@ -346,26 +325,22 @@ class DirectoryExpander(Expander):
             
         self.expanded = True
  
- 
     def getPopupMenu(self, parent_window):
         return DirectoryExpanderPopup(parent_window, self)
     
-
     def handleClick(self, control):
         hdr_config = hdr_config_dict[self.path]
         control.hdrconfig_panel.setConfig(hdr_config, self.path)
 
-
     def executeGen(self,gen):
         self.expand()
-
 
     def cmdExec(self,gen):
         wt = WorkerThread(recursiveCommand(self.tree, self.itemID, gen))
             
-            
     def genSymlink(self):
         self.cmdExec(CompositeImage.SymlinkGenerator())
+ 
             
     def genHDR(self):
         self.cmdExec(CompositeImage.HDRGenerator())
@@ -386,8 +361,7 @@ class ImageSequenceExpanderPopup(ExpanderPopup):
         menu_items = [("Generate", self.onGenerate),
                       ("Symlinks", self.onCreateSymlink)]
         self.buildMenu(menu_items)
-
-    
+   
     def onGenerate(self, evt):
         self.expander.executeGen(CompositeImage.HDRGenerator())
         
@@ -405,11 +379,9 @@ class ImageSequenceExpander(Expander):
             
         #self.path = img_seq.getFilelist()[0]
         self.expanded = False
- 
-    
+     
     def isExpanded(self):
         return self.expanded
- 
     
     def expand(self):
         # TODO: Minden egyes alkalommal újra kell számolni
@@ -423,16 +395,13 @@ class ImageSequenceExpander(Expander):
     
     # TODO: ez itt már HDR és nem ImageSequence
     
-
     def handleClick(self, control):
         hdr_config = hdr_config_dict[self.target_path]
         control.hdrconfig_panel.setConfig(hdr_config, self.path)
-    
         
     def getPopupMenu(self, parent_window):
         return ImageSequenceExpanderPopup(self)
     
-
     def executeGen(self, gen):
         self.tree.processingStarted(self.itemID)
         seq = self.seq
@@ -446,8 +415,7 @@ class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
     def __init__(self):
         self.d = {}
-        
-        
+                
     def __getitem__(self, key):
         k = os.path.abspath(key)
         if not k in self:
@@ -458,17 +426,14 @@ class TreeDict:
         
         return self.d[k]
 
-
     def __setitem__(self, key, value):
         key = os.path.abspath(key)
         self.d[key] = value
 
-
     def __delitem__(self, key):
         key = os.path.abspath(key)
         del self.d[key]
-        
-        
+                
     def __len__(self):
         return len(self.d)
 
@@ -499,25 +464,21 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         self.img_wip = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_OTHER, (16,16)))
         self.img_ready = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_OTHER, (16,16)))
         self.img_aborted = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_CROSS_MARK, wx.ART_OTHER, (16,16)))
-    
-    
+        
     def processingStarted(self, item):
         self.SetItemImage(item, self.img_wip,wx.TreeItemIcon_Normal)
-        
-        
+            
     def processingCompleted(self, item):
         self.SetItemImage(item, self.img_ready,wx.TreeItemIcon_Normal)
-        
         
     def processingFailed(self, item):
         self.SetItemImage(item, self.img_aborted,wx.TreeItemIcon_Normal)
         
-        
     def clearState(self, item):
         self.SetItemImage(item, -1,wx.TreeItemIcon_Normal)
+  
         
 class TreeCtrlFrame(wx.Frame):
-    
     
     def __init__(self, parent, id, title, rootdir):
         
@@ -554,8 +515,7 @@ class TreeCtrlFrame(wx.Frame):
         self.tree.Bind(wx.EVT_TREE_ITEM_EXPANDING, self.onItemExpand, id=1)
         self.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK, self.onRightClick, self.tree)
         self.Bind(wx.EVT_TREE_SEL_CHANGED, self.onClickItem, self.tree)
-                
-        
+                    
     def onItemExpand(self, e):
 
         item = e.GetItem()
@@ -563,7 +523,6 @@ class TreeCtrlFrame(wx.Frame):
         if not data.isExpanded():
             data.expand()
         
-
     def onClickItem(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
@@ -571,12 +530,10 @@ class TreeCtrlFrame(wx.Frame):
         
         data.handleClick(self)
         
-        
     def onRightClick(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
         self.PopupMenu(data.getPopupMenu(self), e.GetPoint())
-
 
     def onUpdate(self, e):
         print self.path, self.hdrconfig_panel.hdr_config
