@@ -390,10 +390,8 @@ class ImageSequenceExpander(Expander):
         for img in sorted(self.seq):
             child = self.tree.AppendItem(self.itemID, os.path.basename(img))
             ImageExpander(self.tree, child, self.seq[img])
-            
         self.expanded = True
-    
-    # TODO: ez itt már HDR és nem ImageSequence
+
     
     def handleClick(self, control):
         hdr_config = hdr_config_dict[self.target_path]
@@ -445,15 +443,6 @@ class TreeDict:
         return self.d.keys()
      
 
-def iterchildren(treectrl, node):
-    cid, citem = treectrl.GetFirstChild(node)
-    while cid.IsOk():
-        for c in iterchildren(treectrl, cid):
-            yield c
-        yield cid
-        cid, citem = treectrl.GetNextChild(node, citem)
-          
-
 class TreeCtrlWithImages(wx.TreeCtrl):
     def __init__(self, *args, **kwrds):
         
@@ -489,7 +478,7 @@ class TreeCtrlFrame(wx.Frame):
         self.tree = TreeCtrlWithImages(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
         
         
-        self.path = rootdir
+        #self.path = rootdir
         expander = DirectoryExpander(self.tree, rootdir)
         
         self.updatebutton = wx.Button(panel, label='Update')
@@ -537,7 +526,6 @@ class TreeCtrlFrame(wx.Frame):
         self.PopupMenu(data.getPopupMenu(self), e.GetPoint())
 
     def onUpdate(self, e):
-        print self.path, self.hdrconfig_panel.hdr_config
         hdr_config_dict[self.path] = self.hdrconfig_panel.hdr_config
         for k in hdr_config_dict.keys():
             print k, hdr_config_dict[k]
