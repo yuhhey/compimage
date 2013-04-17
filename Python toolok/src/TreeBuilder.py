@@ -138,8 +138,27 @@ class Command:
         
     def abortWanted(self):
         return self._want_abort != 0
+    
+    def __call__(self):
+        print "What command is that can not be called!"
+        raise NotImplementedError
 
 
+class recursiveCommand(Command):
+    def __init__(self, tree, itemID, gen):
+        Command.__init__(self, tree)
+        self.tree = tree
+        self.itemID = itemID
+        self.gen = gen
+        
+    def __call__(self):
+        for i in treeIterator(self.tree, self.itemID):
+            if self.abortWanted():
+                wx.PostEvent(self._notify_window, None)
+            data = self.tree.GetPyData(i)
+            data.executeGen(self.gen)
+
+ 
 class WorkerThread(TH.Thread):
     """Worker Thread Class."""
     def __init__(self, cmd):
@@ -258,19 +277,6 @@ class DirectoryExpanderPopup(ExpanderPopup):
         self.dir_expander.genHDR()
 
 
-class recursiveCommand(Command):
-    def __init__(self, tree, itemID, gen):
-        self.tree = tree
-        self.itemID = itemID
-        self.gen = gen
-        
-    def __call__(self):
-        for i in treeIterator(self.tree, self.itemID):
-            data = self.tree.GetPyData(i)
-            data.executeGen(self.gen)
-        TH.exit()
-
-
 class DirectoryExpander(Expander):
     def __init__(self, tree, path, itemID = None):
         #FIXME: turn it to assert
@@ -287,42 +293,62 @@ class DirectoryExpander(Expander):
     def isExpanded(self):
         return self.expanded
  
-    def expand(self):
-
-        if self.isExpanded():
-            return
+ 
+    def onDirListReady(self, list):
+        self.tree.clearState(self.itemID)
         
-        self.tree.processingStarted(self.itemID)
-        for fn in sorted(os.listdir(self.path)):
+        for fn in sorted(list):
             fullpath = os.path.join(self.path, fn)
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, fn)
                 DirectoryExpander(self.tree, fullpath, child)
                 
+       
         # Here we shall parse for image sequences.
         hdr_config = hdr_config_dict[self.path]
+                
+        # Ezt kell Thread commandba foglalni.
         try: 
             hdrs, single_images = CompositeImage.CollectHDRStrategy().parseDir(self.path, hdr_config)
-            item_text = self.tree.GetItemText(self.itemID)
-            n_hdrs = len(hdrs)
-            if n_hdrs != 0:
-                item_text = item_text + "(%d hdrs)" % n_hdrs
-                self.tree.SetItemText(self.itemID, item_text)
             
-            prefix = hdr_config.GetPrefix()
-            hdr_path = hdr_config.GetTargetDir()
-            for fn, seq in enumerate(reversed(hdrs)):
-                actual_prefix = prefix + "_%d" % fn  
-                target_path = os.path.join(hdr_path, actual_prefix)
-                child = self.tree.AppendItem(self.itemID, target_path)
-                ImageSequenceExpander(self.tree, target_path, child, seq)
-                hdr_config_per_image = copy.deepcopy(hdr_config)
-                hdr_config_per_image.SetPrefix(actual_prefix)
-                hdr_config_dict[target_path] = hdr_config_per_image
-        except IOError: # handling the case when there are no raw files
-            print "No RAW input to parse in %s" % self.path
+        except IOError:  # handling the case when there are no raw files
+            print "No RAW input to parse in %s" % self.path    
+              
+    def onHDRParsed(self, (hdrs, single_images)):
         self.tree.clearState(self.itemID)
+        
+        n_hdrs = len(hdrs)
+        if n_hdrs == 0:
+            return
+        
+        item_text = self.tree.GetItemText(self.itemID)
+        item_text = item_text + "(%d hdrs)" % n_hdrs
+        self.tree.SetItemText(self.itemID, item_text)
             
+        prefix = hdr_config.GetPrefix()
+        hdr_path = hdr_config.GetTargetDir()
+        for fn, seq in enumerate(reversed(hdrs)):
+            actual_prefix = prefix + "_%d" % fn  
+            target_path = os.path.join(hdr_path, actual_prefix)
+            child = self.tree.AppendItem(self.itemID, target_path)
+            ImageSequenceExpander(self.tree, target_path, child, seq)
+            hdr_config_per_image = copy.deepcopy(hdr_config)
+            hdr_config_per_image.SetPrefix(actual_prefix)
+            hdr_config_dict[target_path] = hdr_config_per_image
+
+    def onProgressTimer(self):
+        pass
+        
+    def expand(self):
+
+        if self.isExpanded():
+            return
+        
+        #Ezt kell threadbe foglalni
+        os.listdir(self.path)
+        
+        #self.tree.processingStarted(self.itemID)
+               
         self.expanded = True
  
     def getPopupMenu(self, parent_window):
@@ -333,10 +359,12 @@ class DirectoryExpander(Expander):
         control.hdrconfig_panel.setConfig(hdr_config, self.path)
 
     def executeGen(self,gen):
+        print self.path, "executeGen"
         self.expand()
 
     def cmdExec(self,gen):
-        wt = WorkerThread(recursiveCommand(self.tree, self.itemID, gen))
+        # EZ nem ilyen egyszerű, mivel az expand gyorsan visszatér, ezért rengeteg threaded gyártana le.
+        wt = recursiveCommand(self.tree, self.itemID, gen)
             
     def genSymlink(self):
         self.cmdExec(CompositeImage.SymlinkGenerator())
@@ -401,12 +429,12 @@ class ImageSequenceExpander(Expander):
         return ImageSequenceExpanderPopup(self)
     
     def executeGen(self, gen):
-        self.tree.processingStarted(self.itemID)
+        #self.tree.processingStarted(self.itemID)
         seq = self.seq
         path = self.target_path
         hdr_config = hdr_config_dict[path]
         gen(seq, hdr_config)
-        self.tree.processingCompleted(self.itemID)
+        #self.tree.processingCompleted(self.itemID)
 
     
 class TreeDict:
@@ -542,7 +570,7 @@ def treeIterator(tree, item):
 
 class TestExpandersApp(wx.App):
     def OnInit(self):
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/')#media/misc/MM/Filmek/Nepal/CR2')#storage/Kepek/kepek_eredeti/CR2/2012_04_02') #
+        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/home')#media/misc/MM/Filmek/Nepal/CR2')#storage/Kepek/kepek_eredeti/CR2/2012_04_02') #
         frame.Show(True)
         self.SetTopWindow(frame)
         return True
