@@ -337,6 +337,7 @@ class DirectoryExpander(Expander):
             hdr_config_dict[target_path] = hdr_config_per_image
 
     def onProgressTimer(self):
+        # Ha több mint egy thread van, akkor a timer újra indítjuk
         pass
         
     def expand(self):
@@ -344,10 +345,13 @@ class DirectoryExpander(Expander):
         if self.isExpanded():
             return
         
+        self.tree.processingStarted(self.itemID)
+        # Here we start a timer for the progress indicator
+        
         #Ezt kell threadbe foglalni
         os.listdir(self.path)
         
-        #self.tree.processingStarted(self.itemID)
+        
                
         self.expanded = True
  
@@ -478,18 +482,33 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         # bitmaps for progress indication.
         self.il = wx.ImageList(16,16)
         self.AssignImageList(self.il)
-        self.img_wip = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_OTHER, (16,16)))
+        self.imgs_wip = [self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_OTHER, (16,16)))]
         self.img_ready = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_OTHER, (16,16)))
         self.img_aborted = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_CROSS_MARK, wx.ART_OTHER, (16,16)))
         
+        # Init for progress animation
+        self.processedItem = None
+        self.processImageIndex = 0
+        self.timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.updateProgress, self.timer)
+        
     def processingStarted(self, item):
-        self.SetItemImage(item, self.img_wip,wx.TreeItemIcon_Normal)
+        self.processedItem = item
+        self.SetItemImage(item, self.imgs_wip[0],wx.TreeItemIcon_Normal)
+        
+        self.timer.Start(100) #in milliseconds
+        
+    def updateProgress(self):
+        self.processImageIndex = (self.processImageIndex + 1) % len(self.imgs_wip)
+        self.SetItemImage(item, self.imgs_wip[self.processImageIndex], wx.TreeItemIcon_Normal)
             
     def processingCompleted(self, item):
         self.SetItemImage(item, self.img_ready,wx.TreeItemIcon_Normal)
+        self.timer.Stop()
         
     def processingFailed(self, item):
         self.SetItemImage(item, self.img_aborted,wx.TreeItemIcon_Normal)
+        self.timer.Stop()
         
     def clearState(self, item):
         self.SetItemImage(item, -1,wx.TreeItemIcon_Normal)
