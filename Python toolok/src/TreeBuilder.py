@@ -6,6 +6,8 @@ import errno
 import CompositeImage
 import copy
 import threading as TH
+import time
+import glob
 
 
 class HDRConfigPanel(wx.Panel):
@@ -125,13 +127,8 @@ class HDRConfigDialog(wx.Dialog):
 
 
 class Command:
-    def __init__(self, notify_window):
-        self._notify_window = notify_window
+    def __init__(self):
         self._want_abort = 0
-    
-    def Finished(self,data):
-        pass
-        #wx.PostEvent(self._notify_window, data)
         
     def abort(self):    
         self._want_abort = 1
@@ -140,9 +137,9 @@ class Command:
         return self._want_abort != 0
     
     def __call__(self):
-        print "What command is that can not be called!"
-        raise NotImplementedError
-
+        print "Command object default operation: sleep for 5 sec"
+        time.sleep(5)
+        
 
 class recursiveCommand(Command):
     def __init__(self, tree, itemID, gen):
@@ -150,6 +147,7 @@ class recursiveCommand(Command):
         self.tree = tree
         self.itemID = itemID
         self.gen = gen
+        self.iterator = treeIterator(self.tree, self.itemID)
         
     def __call__(self):
         for i in treeIterator(self.tree, self.itemID):
@@ -158,20 +156,88 @@ class recursiveCommand(Command):
             data = self.tree.GetPyData(i)
             data.executeGen(self.gen)
 
- 
+
+class dirlistCommand(Command):
+    def __init__(self, path):
+        Command.__init__(self)
+        self.path = path
+    
+    def __call__(self):
+        return os.listdir(self.path)
+        
+
+
+class HDRParserCommand(Command):
+    def __init__(self, path):
+        Command.__init__(self)
+        self.path = path
+        
+    def __call__(self):
+        hdr_config = hdr_config_dict[self.path]
+        try: 
+            hdrs, single_images = CompositeImage.CollectHDRStrategy().parseDir(self.path, hdr_config)
+            return (hdrs, single_images)
+        except IOError:  # handling the case when there are no raw files
+            print "No RAW input to parse in %s" % self.path    
+
+
+class ExpanderGenCommand(Command):
+    def __init__(self, expander, gen):
+        Command.__init__(self)
+        self.expander = expander
+        self.gen = gen
+        
+    def __call__(self):
+        return self.expander.executeGen(self.gen)
+
+# Define a new custom event type
+wxEVT_COMMAND_UPDATE = wx.NewEventType()
+EVT_COMMAND_UPDATE = wx.PyEventBinder(wxEVT_COMMAND_UPDATE, 1)
+
+class CommandUpdate(wx.PyCommandEvent):
+    def __init__(self, callback):
+        super(CommandUpdate, self).__init__(wxEVT_COMMAND_UPDATE, 0)
+        # Attributes
+        self.value = None
+        self.callback = callback
+        self.result = 'Failed'
+        self.task_id = None
+        
+    def SetValue(self, value):
+        self.value = value
+        
+    def GetValue(self):
+        return self.value
+
+    def SetTaskID(self, task_id):
+        self.task_id = task_id
+        
+    def GetTaskID(self):
+        return self.task_id
+
+
 class WorkerThread(TH.Thread):
     """Worker Thread Class."""
-    def __init__(self, cmd):
+    def __init__(self, cmd, task_id, notify_window, callback):
         """Init Worker Thread Class."""
         TH.Thread.__init__(self)
         self._cmd = cmd
+        self.task_id = task_id
+        self._notify_window = notify_window
+        self.callback = callback
         # This starts the thread running on creation, but you could
         # also make the GUI thread responsible for calling this
         self.start()
 
     def run(self):
         """Run Worker Thread."""
-        self._cmd()
+        event = CommandUpdate(self.callback)
+        result = self._cmd()
+        if result != None:
+            event.result = 'Ok'
+        event.SetValue(result)
+        event.SetTaskID(self.task_id)
+        wx.PostEvent(self._notify_window, event)
         
     def abort(self):
         self._cmd.abort()
@@ -293,38 +359,32 @@ class DirectoryExpander(Expander):
     def isExpanded(self):
         return self.expanded
  
- 
-    def onDirListReady(self, list):
-        self.tree.clearState(self.itemID)
-        
-        for fn in sorted(list):
+    def addSubdirsToTree(self, l):
+        for fn in sorted(l):
             fullpath = os.path.join(self.path, fn)
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, fn)
                 DirectoryExpander(self.tree, fullpath, child)
-                
-       
-        # Here we shall parse for image sequences.
-        hdr_config = hdr_config_dict[self.path]
-                
-        # Ezt kell Thread commandba foglalni.
-        try: 
-            hdrs, single_images = CompositeImage.CollectHDRStrategy().parseDir(self.path, hdr_config)
-            
-        except IOError:  # handling the case when there are no raw files
-            print "No RAW input to parse in %s" % self.path    
-              
-    def onHDRParsed(self, (hdrs, single_images)):
+
+    def DirListReadyCallback(self, l):
+        self.task_id = self.tree.processingStarted(self.itemID)
+        self.addSubdirsToTree(l)
+        cmd = HDRParserCommand(self.path)
+        WorkerThread(cmd, self.task_id, self.tree, self.HDRParsedCallback)
+                      
+    def HDRParsedCallback(self, (hdrs, single_images)):
         self.tree.clearState(self.itemID)
         
         n_hdrs = len(hdrs)
         if n_hdrs == 0:
-            return
+            pass
         
         item_text = self.tree.GetItemText(self.itemID)
         item_text = item_text + "(%d hdrs)" % n_hdrs
         self.tree.SetItemText(self.itemID, item_text)
-            
+        
+        hdr_config = hdr_config_dict[self.path]
+        
         prefix = hdr_config.GetPrefix()
         hdr_path = hdr_config.GetTargetDir()
         for fn, seq in enumerate(reversed(hdrs)):
@@ -336,23 +396,18 @@ class DirectoryExpander(Expander):
             hdr_config_per_image.SetPrefix(actual_prefix)
             hdr_config_dict[target_path] = hdr_config_per_image
 
-    def onProgressTimer(self):
-        # Ha több mint egy thread van, akkor a timer újra indítjuk
-        pass
-        
     def expand(self):
 
         if self.isExpanded():
             return
         
-        self.tree.processingStarted(self.itemID)
+        self.task_id = self.tree.processingStarted(self.itemID)
         # Here we start a timer for the progress indicator
         
-        #Ezt kell threadbe foglalni
-        os.listdir(self.path)
-        
-        
-               
+        cmd = dirlistCommand(self.path)
+        WorkerThread(cmd, self.task_id, self.tree, self.DirListReadyCallback)
+        #self.tree.processingCompleted(task_id)
+        #self.tree.clearState(self.itemID)               
         self.expanded = True
  
     def getPopupMenu(self, parent_window):
@@ -363,17 +418,37 @@ class DirectoryExpander(Expander):
         control.hdrconfig_panel.setConfig(hdr_config, self.path)
 
     def executeGen(self,gen):
-        print self.path, "executeGen"
-        self.expand()
+        if self.isExpanded():
+            return
+        
+        cmd = dirlistCommand(self.path)
+        dir_list = cmd()
+        self.addSubdirsToTree(dir_list)
+        
+        cmd = HDRParserCommand(self.path)
+        (hdrs, single_images) = cmd()
+        self.HDRParsedCallback((hdrs, single_images))
+        self.expanded = True
+        
+    def ExecNextItem(self):
+        item = self.treeIterator.next()
+        self.task_id = self.tree.processingStarted(item)
+        expander = self.tree.GetPyData(item)
+        cmd = ExpanderGenCommand(expander, self.gen)
+        WorkerThread(cmd, self.task_id, self.tree, self.cmdExecCallback)
+
+    def cmdExecCallback(self, e):
+        self.tree.processingCompleted(self.task_id)
+        self.ExecNextItem()
 
     def cmdExec(self,gen):
-        # EZ nem ilyen egyszerű, mivel az expand gyorsan visszatér, ezért rengeteg threaded gyártana le.
-        wt = recursiveCommand(self.tree, self.itemID, gen)
-            
+        self.treeIterator = treeIterator(self.tree, self.itemID)
+        self.gen = gen
+        self.ExecNextItem()
+    
     def genSymlink(self):
         self.cmdExec(CompositeImage.SymlinkGenerator())
- 
-            
+
     def genHDR(self):
         self.cmdExec(CompositeImage.HDRGenerator())
 
@@ -399,7 +474,7 @@ class ImageSequenceExpanderPopup(ExpanderPopup):
         
     def onCreateSymlink(self,evt):
         self.expander.executeGen(CompositeImage.SymlinkGenerator())
-
+                      
 
 class ImageSequenceExpander(Expander):
     def __init__(self, tree, target_path, itemID, img_seq):
@@ -431,14 +506,13 @@ class ImageSequenceExpander(Expander):
         
     def getPopupMenu(self, parent_window):
         return ImageSequenceExpanderPopup(self)
+
+    def ExecuteGenCallback(self, result):
+        pass
     
     def executeGen(self, gen):
-        #self.tree.processingStarted(self.itemID)
-        seq = self.seq
-        path = self.target_path
-        hdr_config = hdr_config_dict[path]
-        gen(seq, hdr_config)
-        #self.tree.processingCompleted(self.itemID)
+        hdr_config = hdr_config_dict[self.target_path]
+        return self.gen(self.seq, hdr_config)
 
     
 class TreeDict:
@@ -482,36 +556,56 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         # bitmaps for progress indication.
         self.il = wx.ImageList(16,16)
         self.AssignImageList(self.il)
-        self.imgs_wip = [self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_OTHER, (16,16)))]
+        self.img_null = self.il.Add(wx.NullBitmap)
+        self.imgs_wip = [self.il.Add(wx.Bitmap(fn)) for fn in sorted(glob.glob('roller-?_16.png'))]
         self.img_ready = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_OTHER, (16,16)))
-        self.img_aborted = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_CROSS_MARK, wx.ART_OTHER, (16,16)))
+        self.img_aborted = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_ERROR, wx.ART_OTHER, (16,16)))
+        
+        # Init for process accounting
+        self.processedItems = {}
+        self.process_idx = 0
         
         # Init for progress animation
-        self.processedItem = None
-        self.processImageIndex = 0
+        self.progressImageIndex = 0
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.updateProgress, self.timer)
         
+        
     def processingStarted(self, item):
-        self.processedItem = item
+        if item in self.processedItems:
+            raise TypeError # TODO ehelyett value error kellene
+        self.process_idx = self.process_idx + 1
+        self.processedItems[self.process_idx] = item
         self.SetItemImage(item, self.imgs_wip[0],wx.TreeItemIcon_Normal)
-        
         self.timer.Start(100) #in milliseconds
+        return self.process_idx
         
-    def updateProgress(self):
-        self.processImageIndex = (self.processImageIndex + 1) % len(self.imgs_wip)
-        self.SetItemImage(item, self.imgs_wip[self.processImageIndex], wx.TreeItemIcon_Normal)
+    def updateProgress(self,e):
+        self.progressImageIndex = (self.progressImageIndex + 1) % len(self.imgs_wip)
+        for k in self.processedItems.keys():
+            item = self.processedItems[k]
+            self.SetItemImage(item, self.imgs_wip[self.progressImageIndex], wx.TreeItemIcon_Normal)
             
-    def processingCompleted(self, item):
-        self.SetItemImage(item, self.img_ready,wx.TreeItemIcon_Normal)
+    def processingCompleted(self, task_id):
+        self.SetItemImage(self.processedItems[task_id], self.img_ready,wx.TreeItemIcon_Normal)
+        del self.processedItems[task_id]
+        if self.isItemProcessed():
+            return
         self.timer.Stop()
         
-    def processingFailed(self, item):
+        
+    def isItemProcessed(self):
+        return not len(self.processedItems) == 0
+        
+    def processingFailed(self, task_id):
+        item = self.processedItems[task_id]
         self.SetItemImage(item, self.img_aborted,wx.TreeItemIcon_Normal)
-        self.timer.Stop()
+        del self.processedItems[task_id]
+        if not self.isItemProcessed():
+            self.timer.Stop()
         
     def clearState(self, item):
-        self.SetItemImage(item, -1,wx.TreeItemIcon_Normal)
+        self.SetItemImage(item, self.img_null, wx.TreeItemIcon_Normal)
   
         
 class TreeCtrlFrame(wx.Frame):
@@ -551,6 +645,8 @@ class TreeCtrlFrame(wx.Frame):
         self.tree.Bind(wx.EVT_TREE_ITEM_EXPANDING, self.onItemExpand, id=1)
         self.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK, self.onRightClick, self.tree)
         self.Bind(wx.EVT_TREE_SEL_CHANGED, self.onClickItem, self.tree)
+        
+        self.Bind(EVT_COMMAND_UPDATE, self.onCommandUpdate)
                     
     def onItemExpand(self, e):
 
@@ -577,6 +673,15 @@ class TreeCtrlFrame(wx.Frame):
         for k in hdr_config_dict.keys():
             print k, hdr_config_dict[k]
 
+    def onCommandUpdate(self, e):
+        v = e.GetValue()
+        task_id = e.task_id
+        if e.result == 'Failed':
+            self.tree.processingFailed(task_id)
+        else:
+            self.tree.processingCompleted(task_id)
+            e.callback(v) 
+
 
 def treeIterator(tree, item):
     yield item
@@ -589,7 +694,7 @@ def treeIterator(tree, item):
 
 class TestExpandersApp(wx.App):
     def OnInit(self):
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/home')#media/misc/MM/Filmek/Nepal/CR2')#storage/Kepek/kepek_eredeti/CR2/2012_04_02') #
+        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/media/misc/MM/Filmek/Nepal/CR2')#storage/Kepek/kepek_eredeti/CR2/2012_04_02') #
         frame.Show(True)
         self.SetTopWindow(frame)
         return True

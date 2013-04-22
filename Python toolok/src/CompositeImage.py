@@ -187,6 +187,7 @@ class SameCameraChecker(Checker):
             
         return self.sn == sn
 
+
 class CollectHDRStrategy:
     def readFiles(self, fl):
         imgs = []
@@ -254,7 +255,10 @@ class SymlinkGenerator:
         for f in cimg.getFilelist():
             bn = os.path.basename(f)
             if not os.path.exists(bn):
+                # TODO wrapper, mert csak unixon működik. Windows-on lehetne shortcutot kreálni
                 os.symlink(f, bn)
+                
+        return 0
 
 
 class HDRConfig():
@@ -333,15 +337,19 @@ class HDRGenerator():
         
         tif_list = [RawnameToImagename(f) for f in fl]
         pto_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.GetPrefix())
-        align_cmd = ['align_image_stack', '-atmp', '-p%s.pto' % pto_file] + tif_list
-        subprocess.call(align_cmd)
-        
-        output_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.GetPrefix()+hdr_config.GetImageExt())
-        enfuse_cmd = ['enfuse', '-o%s' % output_file] + ['tmp%04d.tif'%i for i in range(len(fl))]
-        subprocess.call(enfuse_cmd)
+        try:
+            align_cmd = ['align_image_stack', '-atmp', '-p%s.pto' % pto_file] + tif_list
+            result = subprocess.check_output(align_cmd)
+            output_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.GetPrefix()+hdr_config.GetImageExt())
+            enfuse_cmd = ['enfuse', '-o%s' % output_file] + ['tmp%04d.tif'%i for i in range(len(fl))]
+            result = subprocess.check_output(enfuse_cmd)
+        except subprocess.CalledProcessError as e:
+            print e.cmd, e.output
+            result = None 
         
         for fn in glob.glob('tmp[0-9][0-9][0-9][0-9]*'):
             os.remove(fn)
+        return result
 
        
 class ShellScriptWriter:
