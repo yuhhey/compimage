@@ -557,7 +557,7 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         self.il = wx.ImageList(16,16)
         self.AssignImageList(self.il)
         self.img_null = self.il.Add(wx.NullBitmap)
-        self.imgs_wip = [self.il.Add(wx.Bitmap(fn)) for fn in sorted(glob.glob('roller-?_16.png'))]
+        self.imgs_wip = [self.il.Add(wx.Bitmap(fn)) for fn in sorted(glob.glob('roller_16-?.png'))]
         self.img_ready = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_OTHER, (16,16)))
         self.img_aborted = self.il.Add(wx.ArtProvider.GetBitmap(wx.ART_ERROR, wx.ART_OTHER, (16,16)))
         
