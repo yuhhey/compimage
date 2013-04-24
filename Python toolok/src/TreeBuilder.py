@@ -181,14 +181,17 @@ class HDRParserCommand(Command):
             print "No RAW input to parse in %s" % self.path    
 
 
-class ExpanderGenCommand(Command):
-    def __init__(self, expander, gen):
+class HDRSeqGenCommand(Command):
+    def __init__(self, seq, target_path, gen):
         Command.__init__(self)
-        self.expander = expander
+        self.seq = seq
         self.gen = gen
+        self.target_path = target_path
         
     def __call__(self):
-        return self.expander.executeGen(self.gen)
+        hdr_config = hdr_config_dict[self.target_path]
+        return self.gen(self.seq, hdr_config)
+
 
 # Define a new custom event type
 wxEVT_COMMAND_UPDATE = wx.NewEventType()
@@ -314,6 +317,8 @@ class Expander(object):
     def executeGen(self, dummyarg):
         pass
 
+    def getPath(self):
+        return self.path
            
 class DirectoryExpanderPopup(ExpanderPopup):
     def __init__(self, parent_window, d_expander):
@@ -412,40 +417,17 @@ class DirectoryExpander(Expander):
  
     def getPopupMenu(self, parent_window):
         return DirectoryExpanderPopup(parent_window, self)
+
+    def getPath(self):
+        return self.path
     
     def handleClick(self, control):
         hdr_config = hdr_config_dict[self.path]
         control.hdrconfig_panel.setConfig(hdr_config, self.path)
 
     def executeGen(self,gen):
-        if self.isExpanded():
-            return
-        
-        cmd = dirlistCommand(self.path)
-        dir_list = cmd()
-        self.addSubdirsToTree(dir_list)
-        
-        cmd = HDRParserCommand(self.path)
-        (hdrs, single_images) = cmd()
-        self.HDRParsedCallback((hdrs, single_images))
-        self.expanded = True
-        
-    def ExecNextItem(self):
-        item = self.treeIterator.next()
-        self.task_id = self.tree.processingStarted(item)
-        expander = self.tree.GetPyData(item)
-        cmd = ExpanderGenCommand(expander, self.gen)
-        WorkerThread(cmd, self.task_id, self.tree, self.cmdExecCallback)
+        self.expand()
 
-    def cmdExecCallback(self, e):
-        self.tree.processingCompleted(self.task_id)
-        self.ExecNextItem()
-
-    def cmdExec(self,gen):
-        self.treeIterator = treeIterator(self.tree, self.itemID)
-        self.gen = gen
-        self.ExecNextItem()
-    
     def genSymlink(self):
         self.cmdExec(CompositeImage.SymlinkGenerator())
 
@@ -507,13 +489,17 @@ class ImageSequenceExpander(Expander):
     def getPopupMenu(self, parent_window):
         return ImageSequenceExpanderPopup(self)
 
+    def getPath(self):
+        return self.target_path
+
     def ExecuteGenCallback(self, result):
         pass
     
     def executeGen(self, gen):
-        hdr_config = hdr_config_dict[self.target_path]
-        return self.gen(self.seq, hdr_config)
-
+        cmd = HDRSeqGenCommand(self.seq, self.target_path, gen)
+        task_id = self.tree.processingStarted(self.itemID)
+        WorkerThread(cmd, task_id, self.tree, None)
+        
     
 class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
@@ -569,8 +555,8 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         self.progressImageIndex = 0
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.updateProgress, self.timer)
-        
-        
+        self.iterator = None
+
     def processingStarted(self, item):
         if item in self.processedItems:
             raise TypeError # TODO ehelyett value error kellene
@@ -592,7 +578,6 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         if self.isItemProcessed():
             return
         self.timer.Stop()
-        
         
     def isItemProcessed(self):
         return not len(self.processedItems) == 0
@@ -659,10 +644,8 @@ class TreeCtrlFrame(wx.Frame):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
         data.handleClick(self)
-        self.path = data.path
-        
-        
-        
+        self.path = data.getPath()
+                
     def onRightClick(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
@@ -680,7 +663,13 @@ class TreeCtrlFrame(wx.Frame):
             self.tree.processingFailed(task_id)
         else:
             self.tree.processingCompleted(task_id)
-            e.callback(v) 
+            if e.callback:
+                e.callback(v)
+        
+        if self.tree.iterator:
+            item = self.tree.iterator.next()
+            expander = self.tree.GetPyData(item)
+            expander.executeGen(self.tree.gen)
 
 
 def treeIterator(tree, item):
