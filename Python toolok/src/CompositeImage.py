@@ -254,9 +254,11 @@ class SymlinkGenerator:
         os.chdir(raw_dir)
         for f in cimg.getFilelist():
             bn = os.path.basename(f)
-            if not os.path.exists(bn):
+            dn = os.path.basename(os.path.dirname(f))
+            ln = dn + '_' + bn
+            if not os.path.exists(ln):
                 # TODO wrapper, mert csak unixon működik. Windows-on lehetne shortcutot kreálni
-                os.symlink(f, bn)
+                os.symlink(f, ln)
                 
         return 0
 
@@ -307,7 +309,7 @@ class HDRConfig():
     def GetImageSubdir(self):
         return self.GetImageExt()[1:]
 
-    def getIndex(self):
+    def GetIndex(self):
         i = self.__index
         self.__index += 1
         return i

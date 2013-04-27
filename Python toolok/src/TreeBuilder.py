@@ -450,8 +450,6 @@ class ImageSequenceExpander(Expander):
             child = self.tree.AppendItem(self.itemID, os.path.basename(img))
             ImageExpander(self.tree, child, self.seq[img])
         self.expanded = True
-
-    
     def handleClick(self, control):
         hdr_config = hdr_config_dict[self.target_path]
         control.hdrconfig_panel.setConfig(hdr_config, self.target_path)
