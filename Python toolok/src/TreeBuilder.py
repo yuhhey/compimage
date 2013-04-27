@@ -141,32 +141,6 @@ class Command:
         time.sleep(5)
         
 
-class recursiveCommand(Command):
-    def __init__(self, tree, itemID, gen):
-        Command.__init__(self, tree)
-        self.tree = tree
-        self.itemID = itemID
-        self.gen = gen
-        self.iterator = treeIterator(self.tree, self.itemID)
-        
-    def __call__(self):
-        for i in treeIterator(self.tree, self.itemID):
-            if self.abortWanted():
-                wx.PostEvent(self._notify_window, None)
-            data = self.tree.GetPyData(i)
-            data.executeGen(self.gen)
-
-
-class dirlistCommand(Command):
-    def __init__(self, path):
-        Command.__init__(self)
-        self.path = path
-    
-    def __call__(self):
-        return os.listdir(self.path)
-        
-
-
 class HDRParserCommand(Command):
     def __init__(self, path):
         Command.__init__(self)
@@ -370,12 +344,6 @@ class DirectoryExpander(Expander):
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, fn)
                 DirectoryExpander(self.tree, fullpath, child)
-
-    def DirListReadyCallback(self, l):
-        self.task_id = self.tree.processingStarted(self.itemID)
-        self.addSubdirsToTree(l)
-        cmd = HDRParserCommand(self.path)
-        WorkerThread(cmd, self.task_id, self.tree, self.HDRParsedCallback)
                       
     def HDRParsedCallback(self, (hdrs, single_images)):
         self.tree.clearState(self.itemID)
@@ -393,7 +361,7 @@ class DirectoryExpander(Expander):
         prefix = hdr_config.GetPrefix()
         hdr_path = hdr_config.GetTargetDir()
         for fn, seq in enumerate(reversed(hdrs)):
-            actual_prefix = prefix + "_%d" % fn  
+            actual_prefix = prefix + "_%d" % hdr_config.GetIndex()  
             target_path = os.path.join(hdr_path, actual_prefix)
             child = self.tree.AppendItem(self.itemID, target_path)
             ImageSequenceExpander(self.tree, target_path, child, seq)
@@ -404,16 +372,18 @@ class DirectoryExpander(Expander):
     def expand(self):
 
         if self.isExpanded():
+            if self.tree.iterator:
+                self.tree.executeNext()    
             return
         
         self.task_id = self.tree.processingStarted(self.itemID)
-        # Here we start a timer for the progress indicator
         
-        cmd = dirlistCommand(self.path)
-        WorkerThread(cmd, self.task_id, self.tree, self.DirListReadyCallback)
-        #self.tree.processingCompleted(task_id)
-        #self.tree.clearState(self.itemID)               
+        l = os.listdir(self.path)
+        self.addSubdirsToTree(l)
+        cmd = HDRParserCommand(self.path)
+        WorkerThread(cmd, self.task_id, self.tree, self.HDRParsedCallback)        
         self.expanded = True
+        return self.task_id
  
     def getPopupMenu(self, parent_window):
         return DirectoryExpanderPopup(parent_window, self)
@@ -426,14 +396,14 @@ class DirectoryExpander(Expander):
         control.hdrconfig_panel.setConfig(hdr_config, self.path)
 
     def executeGen(self,gen):
-        self.expand()
+        return self.expand()
 
     def genSymlink(self):
-        self.cmdExec(CompositeImage.SymlinkGenerator())
+        self.tree.executeGen(CompositeImage.SymlinkGenerator(), self.itemID)
 
     def genHDR(self):
-        self.cmdExec(CompositeImage.HDRGenerator())
-
+        self.tree.executeGen(CompositeImage.HDRGenerator(), self.itemID)
+        
 
 class ImageExpander(Expander):
     def __init__(self, tree, itemID, image):
@@ -499,6 +469,7 @@ class ImageSequenceExpander(Expander):
         cmd = HDRSeqGenCommand(self.seq, self.target_path, gen)
         task_id = self.tree.processingStarted(self.itemID)
         WorkerThread(cmd, task_id, self.tree, None)
+        return task_id
         
     
 class TreeDict:
@@ -591,20 +562,30 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         
     def clearState(self, item):
         self.SetItemImage(item, self.img_null, wx.TreeItemIcon_Normal)
+
+    def executeGen(self, gen, itemID):
+        self.iterator = treeIterator(self, itemID)
+        self.gen = gen
+        self.executeNext()
+
   
+    def executeNext(self):
+        task_id = None
+        while task_id == None:
+            item = self.iterator.next()
+            expander = self.GetPyData(item)
+            task_id = expander.executeGen(self.gen)
+
         
 class TreeCtrlFrame(wx.Frame):
     
     def __init__(self, parent, id, title, rootdir):
-        
-        
-        
         wx.Frame.__init__(self, parent, id, title, wx.DefaultPosition, wx.Size(450, 350))
         panel = wx.Panel(self, -1)
         self.tree = TreeCtrlWithImages(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
         
         
-        #self.path = rootdir
+        self.path = rootdir
         expander = DirectoryExpander(self.tree, rootdir)
         
         self.updatebutton = wx.Button(panel, label='Update')
@@ -667,11 +648,9 @@ class TreeCtrlFrame(wx.Frame):
                 e.callback(v)
         
         if self.tree.iterator:
-            item = self.tree.iterator.next()
-            expander = self.tree.GetPyData(item)
-            expander.executeGen(self.tree.gen)
+            self.tree.executeNext()        
 
-
+        
 def treeIterator(tree, item):
     yield item
     child, cookie = tree.GetFirstChild(item)
