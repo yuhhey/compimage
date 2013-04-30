@@ -349,19 +349,22 @@ class DirectoryExpander(Expander):
         self.tree.clearState(self.itemID)
         
         n_hdrs = len(hdrs)
-        if n_hdrs == 0:
-            pass
+        
         
         item_text = self.tree.GetItemText(self.itemID)
         item_text = item_text + "(%d hdrs)" % n_hdrs
         self.tree.SetItemText(self.itemID, item_text)
         
+        if n_hdrs == 0:
+            return
+        
         hdr_config = hdr_config_dict[self.path]
         
-        prefix = hdr_config.GetPrefix()
+        # Itt kihasznaljuk, hogy az osszes hdr egy konyvtarbol van.
+        prefix = hdr_config.ExpandPrefix(hdrs[0].getFilelist()[0])
         hdr_path = hdr_config.GetTargetDir()
         for fn, seq in enumerate(reversed(hdrs)):
-            actual_prefix = prefix + "_%d" % hdr_config.GetIndex()  
+            actual_prefix = prefix + "_%d" % fn #hdr_config.GetIndex()  
             target_path = os.path.join(hdr_path, actual_prefix)
             child = self.tree.AppendItem(self.itemID, target_path)
             ImageSequenceExpander(self.tree, target_path, child, seq)
@@ -660,7 +663,7 @@ def treeIterator(tree, item):
 
 class TestExpandersApp(wx.App):
     def OnInit(self):
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/media/misc/MM/Filmek/Nepal/CR2')#storage/Kepek/kepek_eredeti/CR2/2012_04_02') #
+        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/storage/Kepek/kepek_eredeti/CR2/') #
         frame.Show(True)
         self.SetTopWindow(frame)
         return True

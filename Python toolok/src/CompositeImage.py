@@ -43,7 +43,18 @@ class CompositeImage(object):
         return len(self._images)
     
     def __getitem__(self, key):
-        return self._images[key]
+        if key in self._images.keys():
+            return self._images[key]
+        
+        dates = [img['Exif.Photo.DateTimeOriginal'] for img in self]
+        dates.sort()
+        
+        if key == 'Exif.Photo.DateTimeOriginal':
+            return dates[0]
+        
+        if key == 'Exif.Photo.ExposureTime':
+            td = dates[-1] - dates[0]
+            
     
     def __iter__(self):
         return iter(self._images.keys())
@@ -253,9 +264,7 @@ class SymlinkGenerator:
             
         os.chdir(raw_dir)
         for f in cimg.getFilelist():
-            bn = os.path.basename(f)
-            dn = os.path.basename(os.path.dirname(f))
-            ln = dn + '_' + bn
+            ln = hdr_config.GetBasename(f)
             if not os.path.exists(ln):
                 # TODO wrapper, mert csak unixon működik. Windows-on lehetne shortcutot kreálni
                 os.symlink(f, ln)
@@ -265,7 +274,7 @@ class SymlinkGenerator:
 
 class HDRConfig():
     """Contains all the configuration data used in HDR sequence handling and final image generation"""
-    def __init__(self,targetdir, raw_ext='.CR2', hdr_ext='.TIF', prefix='HDR', checkers=[TimeStampChecker(7), AEBChecker(), SameCameraChecker()]):
+    def __init__(self,targetdir, raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}', checkers=[TimeStampChecker(7), AEBChecker(), SameCameraChecker()]):
         self.SetTargetDir(targetdir)
         self.SetRawExt(raw_ext)
         self.SetImageExt(hdr_ext)
@@ -313,6 +322,17 @@ class HDRConfig():
         i = self.__index
         self.__index += 1
         return i
+    
+    def GetBasename(self,fn):
+        bn = os.path.basename(fn)
+        dn = os.path.basename(os.path.dirname(fn))
+        return dn + '_' + bn
+    
+    def ExpandPrefix(self, fn):
+        if self._prefix == '${dir}':
+            return os.path.basename(os.path.dirname(fn))
+        else:
+            return self.GetPrefix()
         
     def __str__(self):
         return "HDRConfig:\n" + \
@@ -332,17 +352,17 @@ class HDRGenerator():
             image_subdir = hdr_config.GetImageSubdir()
             img_name = os.path.join(hdr_config.GetTargetDir(),
                                     image_subdir,
-                                    os.path.splitext(os.path.basename(f))[0]+hdr_config.GetImageExt())
+                                    os.path.splitext(hdr_config.GetBasename(f))[0]+hdr_config.GetImageExt())
             return img_name
         
         fl = cimg.getFilelist()
         
         tif_list = [RawnameToImagename(f) for f in fl]
-        pto_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.GetPrefix())
+        pto_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.ExpandPrefix(fl[0]))
         try:
             align_cmd = ['align_image_stack', '-atmp', '-p%s.pto' % pto_file] + tif_list
             result = subprocess.check_output(align_cmd)
-            output_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.GetPrefix()+hdr_config.GetImageExt())
+            output_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.ExpandPrefix(fl[0])+hdr_config.GetImageExt())
             enfuse_cmd = ['enfuse', '-o%s' % output_file] + ['tmp%04d.tif'%i for i in range(len(fl))]
             result = subprocess.check_output(enfuse_cmd)
         except subprocess.CalledProcessError as e:
