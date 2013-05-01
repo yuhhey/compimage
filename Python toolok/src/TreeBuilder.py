@@ -295,7 +295,7 @@ class Expander(object):
         return self.path
            
 class DirectoryExpanderPopup(ExpanderPopup):
-    def __init__(self, parent_window, d_expander):
+    def __init__(self, d_expander):
         ExpanderPopup.__init__(self)
         self.dir_expander = d_expander
         
@@ -305,8 +305,6 @@ class DirectoryExpanderPopup(ExpanderPopup):
                       ("Generate HDR", self.onHDRGen)]
         
         self.buildMenu(menu_items)
-    
-        self.parent_window = parent_window
         
     def onHDRConf(self, evt):
         print evt, type(evt)
@@ -386,8 +384,8 @@ class DirectoryExpander(Expander):
         self.expanded = True
         return self.task_id
  
-    def getPopupMenu(self, parent_window):
-        return DirectoryExpanderPopup(parent_window, self)
+    def getPopupMenu(self):
+        return DirectoryExpanderPopup(self)
 
     def getPath(self):
         return self.path
@@ -453,7 +451,7 @@ class ImageSequenceExpander(Expander):
     def handleClick(self):
         pass
         
-    def getPopupMenu(self, parent_window):
+    def getPopupMenu(self):
         return ImageSequenceExpanderPopup(self)
 
     def getPath(self):
@@ -633,7 +631,7 @@ class TreeCtrlFrame(wx.Frame):
     def onRightClick(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
-        self.PopupMenu(data.getPopupMenu(self), e.GetPoint())
+        self.PopupMenu(data.getPopupMenu(), e.GetPoint())
 
     def onUpdate(self, e):
         hdr_config_dict[self.path] = self.hdrconfig_panel.hdr_config
