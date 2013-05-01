@@ -255,7 +255,7 @@ class Expander(object):
     
     # TODO: megfontolandó, hogy ez különálló függvény legyen - e egy plusz tree paraméterrel
 
-    def handleClick(self, control):
+    def handleClick(self):
         raise NotImplementedError
     
     def itemHasChildOfType(self, item, t):
@@ -392,7 +392,7 @@ class DirectoryExpander(Expander):
     def getPath(self):
         return self.path
     
-    def handleClick(self, control):
+    def handleClick(self):
         pass
 
     def executeGen(self,gen):
@@ -450,7 +450,7 @@ class ImageSequenceExpander(Expander):
             child = self.tree.AppendItem(self.itemID, os.path.basename(img))
             ImageExpander(self.tree, child, self.seq[img])
         self.expanded = True
-    def handleClick(self, control):
+    def handleClick(self):
         pass
         
     def getPopupMenu(self, parent_window):
@@ -625,7 +625,7 @@ class TreeCtrlFrame(wx.Frame):
     def onClickItem(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
-        data.handleClick(self)
+        data.handleClick()
         self.path = data.getPath()
         hdr_config = hdr_config_dict[self.path]
         self.hdrconfig_panel.setConfig(hdr_config, self.path)
