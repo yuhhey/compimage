@@ -374,9 +374,7 @@ class DirectoryExpander(Expander):
 
     def expand(self):
 
-        if self.isExpanded():
-            if self.tree.iterator:
-                self.tree.executeNext()    
+        if self.isExpanded():   
             return
         
         self.task_id = self.tree.processingStarted(self.itemID)
