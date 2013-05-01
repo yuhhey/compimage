@@ -8,7 +8,7 @@ import copy
 import threading as TH
 import time
 import glob
-
+import pickle
 
 class HDRConfigPanel(wx.Panel):
     
@@ -293,7 +293,8 @@ class Expander(object):
 
     def getPath(self):
         return self.path
-           
+
+        
 class DirectoryExpanderPopup(ExpanderPopup):
     def __init__(self, d_expander):
         ExpanderPopup.__init__(self)
@@ -573,9 +574,8 @@ class TreeCtrlWithImages(wx.TreeCtrl):
                 task_id = expander.executeGen(self.gen)
         except StopIteration:
             pass # normal termination of iteration using generator
-        
 
-        
+
 class TreeCtrlFrame(wx.Frame):
     
     def __init__(self, parent, id, title, rootdir):
@@ -583,16 +583,23 @@ class TreeCtrlFrame(wx.Frame):
         panel = wx.Panel(self, -1)
         self.tree = TreeCtrlWithImages(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
         
-        
         self.path = rootdir
         expander = DirectoryExpander(self.tree, rootdir)
         
-        self.updatebutton = wx.Button(panel, label='Update')
+        self.updatebutton = wx.Button(panel, label='&Update')
         self.updatebutton.Bind(wx.EVT_BUTTON, self.onUpdate)
+        savebutton = wx.Button(panel, label='&Save')
+        savebutton.Bind(wx.EVT_BUTTON, self.onSave)
+        loadbutton = wx.Button(panel, label='&Load')
+        loadbutton.Bind(wx.EVT_BUTTON, self.onLoad)
+        button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        button_sizer.Add(self.updatebutton, 0, wx.EXPAND)
+        button_sizer.Add(savebutton, 0, wx.EXPAND)
+        button_sizer.Add(loadbutton, 0, wx.EXPAND)
         
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.tree, 1, wx.EXPAND)
-        sizer.Add(self.updatebutton, 0, wx.EXPAND)
+        sizer.Add(button_sizer, 0, wx.EXPAND)
         panel.SetSizer(sizer)
         
         hdr_config_dict[rootdir] = CompositeImage.HDRConfig('/tmp')
@@ -620,13 +627,17 @@ class TreeCtrlFrame(wx.Frame):
         if not data.isExpanded():
             data.expand()
         
+
+    def _updateHDRConfigPanel(self):
+        hdr_config = hdr_config_dict[self.path]
+        self.hdrconfig_panel.setConfig(hdr_config, self.path)
+
     def onClickItem(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
         data.handleClick()
         self.path = data.getPath()
-        hdr_config = hdr_config_dict[self.path]
-        self.hdrconfig_panel.setConfig(hdr_config, self.path)
+        self._updateHDRConfigPanel()
                 
     def onRightClick(self, e):
         item = e.GetItem()
@@ -635,8 +646,6 @@ class TreeCtrlFrame(wx.Frame):
 
     def onUpdate(self, e):
         hdr_config_dict[self.path] = self.hdrconfig_panel.hdr_config
-        for k in hdr_config_dict.keys():
-            print k, hdr_config_dict[k]
 
     def onCommandUpdate(self, e):
         v = e.GetValue()
@@ -651,7 +660,29 @@ class TreeCtrlFrame(wx.Frame):
         if self.tree.iterator:
             self.tree.executeNext()        
 
-        
+    def ShowCustomDialog(self, fd_style):
+        dlg = wx.FileDialog(self, "Choose a directory", style=fd_style)
+        if wx.ID_OK == dlg.ShowModal():
+            return dlg.GetPath()
+        dlg.Destroy()
+        return None
+
+    def onSave(self, e):
+        fn = self.ShowCustomDialog(wx.FD_SAVE)
+        if fn:
+            fout=open(fn, 'w')
+            fout.write(pickle.dumps(hdr_config_dict))
+            fout.close()
+    
+    def onLoad(self, e):
+        fn = self.ShowCustomDialog(wx.FD_OPEN)
+        if fn:
+            global hdr_config_dict
+            f=open(fn, "r")
+            hdr_config_dict=pickle.loads(f.read())
+            f.close()
+            self._updateHDRConfigPanel()
+     
 def treeIterator(tree, item):
     yield item
     child, cookie = tree.GetFirstChild(item)
