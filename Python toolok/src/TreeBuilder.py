@@ -674,4 +674,4 @@ hdr_config_dict = TreeDict()
 if __name__ == "__main__":
     app = TestExpandersApp()
     app.MainLoop()
-
+    print "Finished. # running threads=%d" % TH.activeCount()
