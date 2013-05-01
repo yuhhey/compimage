@@ -6,6 +6,7 @@ import datetime
 from math import floor
 import subprocess
 import glob
+import string
 
  
 class SingleImage(object):
@@ -329,10 +330,9 @@ class HDRConfig():
         return dn + '_' + bn
     
     def ExpandPrefix(self, fn):
-        if self._prefix == '${dir}':
-            return os.path.basename(os.path.dirname(fn))
-        else:
-            return self.GetPrefix()
+        expanded_prefix = string.Template(self._prefix)
+        return expanded_prefix.substitute(dir = os.path.basename(os.path.dirname(fn)))
+        
         
     def __str__(self):
         return "HDRConfig:\n" + \

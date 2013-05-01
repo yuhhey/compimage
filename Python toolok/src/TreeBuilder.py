@@ -393,8 +393,7 @@ class DirectoryExpander(Expander):
         return self.path
     
     def handleClick(self, control):
-        hdr_config = hdr_config_dict[self.path]
-        control.hdrconfig_panel.setConfig(hdr_config, self.path)
+        pass
 
     def executeGen(self,gen):
         return self.expand()
@@ -452,8 +451,7 @@ class ImageSequenceExpander(Expander):
             ImageExpander(self.tree, child, self.seq[img])
         self.expanded = True
     def handleClick(self, control):
-        hdr_config = hdr_config_dict[self.target_path]
-        control.hdrconfig_panel.setConfig(hdr_config, self.target_path)
+        pass
         
     def getPopupMenu(self, parent_window):
         return ImageSequenceExpanderPopup(self)
@@ -570,10 +568,14 @@ class TreeCtrlWithImages(wx.TreeCtrl):
   
     def executeNext(self):
         task_id = None
-        while task_id == None:
-            item = self.iterator.next()
-            expander = self.GetPyData(item)
-            task_id = expander.executeGen(self.gen)
+        try:
+            while task_id == None:
+                item = self.iterator.next()
+                expander = self.GetPyData(item)
+                task_id = expander.executeGen(self.gen)
+        except StopIteration:
+            pass # normal termination of iteration using generator
+        
 
         
 class TreeCtrlFrame(wx.Frame):
@@ -625,6 +627,8 @@ class TreeCtrlFrame(wx.Frame):
         data = self.tree.GetPyData(item)
         data.handleClick(self)
         self.path = data.getPath()
+        hdr_config = hdr_config_dict[self.path]
+        self.hdrconfig_panel.setConfig(hdr_config, self.path)
                 
     def onRightClick(self, e):
         item = e.GetItem()
