@@ -566,12 +566,16 @@ class TreeCtrlWithImages(wx.TreeCtrl):
 
   
     def executeNext(self):
-        task_id = None
+        
+        print TH.activeCount()
         try:
-            while task_id == None:
-                item = self.iterator.next()
-                expander = self.GetPyData(item)
-                task_id = expander.executeGen(self.gen)
+            while TH.activeCount() < 4:
+                task_id = None 
+                while task_id == None:
+                    item = self.iterator.next()
+                    expander = self.GetPyData(item)
+                    task_id = expander.executeGen(self.gen)
+                    print TH.activeCount()
         except StopIteration:
             pass # normal termination of iteration using generator
 
@@ -705,4 +709,4 @@ hdr_config_dict = TreeDict()
 if __name__ == "__main__":
     app = TestExpandersApp()
     app.MainLoop()
-    print "Finished. # running threads=%d" % TH.activeCount()
+    print "Finished. # running threads=%d" % TH.active_count()

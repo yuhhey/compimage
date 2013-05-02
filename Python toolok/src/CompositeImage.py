@@ -358,18 +358,25 @@ class HDRGenerator():
         fl = cimg.getFilelist()
         
         tif_list = [RawnameToImagename(f) for f in fl]
-        pto_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.ExpandPrefix(fl[0]))
+        prefix = hdr_config.ExpandPrefix(fl[0])
+        pto_file = os.path.join(hdr_config.GetTargetDir(), prefix)
+        tmp_prefix = 'tmp_' + prefix +'_'
         try:
-            align_cmd = ['align_image_stack', '-atmp', '-p%s.pto' % pto_file] + tif_list
+            align_cmd = ['align_image_stack',
+                         '-a%s' % tmp_prefix,
+                         '-p%s.pto' % pto_file] + tif_list
             result = subprocess.check_output(align_cmd)
-            output_file = os.path.join(hdr_config.GetTargetDir(), hdr_config.ExpandPrefix(fl[0])+hdr_config.GetImageExt())
-            enfuse_cmd = ['enfuse', '-o%s' % output_file] + ['tmp%04d.tif'%i for i in range(len(fl))]
+            output_file = os.path.join(hdr_config.GetTargetDir(), prefix+hdr_config.GetImageExt())
+            enfuse_cmd = ['enfuse',
+                          '-o%s' % output_file]
+            
+            enfuse_cmd = enfuse_cmd + ['%s%04d.tif'%(tmp_prefix, i) for i in range(len(fl))]
             result = subprocess.check_output(enfuse_cmd)
         except subprocess.CalledProcessError as e:
             print e.cmd, e.output
             result = None 
         
-        for fn in glob.glob('tmp[0-9][0-9][0-9][0-9]*'):
+        for fn in glob.glob(tmp_prefix + '[0-9][0-9][0-9][0-9]*'):
             os.remove(fn)
         return result
 
