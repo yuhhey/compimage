@@ -567,11 +567,13 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         self.SetItemImage(item, self.img_null, wx.TreeItemIcon_Normal)
 
     def executeGen(self, gen, itemID):
+        if self.iterator:
+            msg = wx.MessageBox(message='One command is already being executed')
+            return
         self.iterator = treeIterator(self, itemID)
         self.gen = gen
         self.executeNext()
 
-  
     def executeNext(self):
         
         print TH.activeCount()
@@ -584,6 +586,7 @@ class TreeCtrlWithImages(wx.TreeCtrl):
                     task_id = expander.executeGen(self.gen)
                     print TH.activeCount()
         except StopIteration:
+            self.iterator = None
             pass # normal termination of iteration using generator
 
 
