@@ -530,6 +530,7 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.updateProgress, self.timer)
         self.iterator = None
+        self._cancel_wanted = False
 
     def processingStarted(self, item):
         if item in self.processedItems:
@@ -571,12 +572,13 @@ class TreeCtrlWithImages(wx.TreeCtrl):
             msg = wx.MessageBox(message='One command is already being executed')
             return
         self.iterator = treeIterator(self, itemID)
+        self._cancel_wanted = False
         self.gen = gen
         self.executeNext()
 
     def executeNext(self):
-        
-        print TH.activeCount()
+        if self._cancel_wanted:
+            return
         try:
             while TH.activeCount() < 4:
                 task_id = None 
@@ -588,6 +590,10 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         except StopIteration:
             self.iterator = None
             pass # normal termination of iteration using generator
+        
+    def StopCommand(self):
+        self._cancel_wanted=True
+        self.iterator = None
 
 
 class TreeCtrlFrame(wx.Frame):
@@ -600,20 +606,24 @@ class TreeCtrlFrame(wx.Frame):
         self.path = rootdir
         expander = DirectoryExpander(self.tree, rootdir)
         
-        self.updatebutton = wx.Button(panel, label='&Update')
+        self.updatebutton = wx.Button(self, id=wx.ID_REFRESH)
         self.updatebutton.Bind(wx.EVT_BUTTON, self.onUpdate)
-        savebutton = wx.Button(panel, label='&Save')
+        savebutton = wx.Button(self, id=wx.ID_SAVE)
         savebutton.Bind(wx.EVT_BUTTON, self.onSave)
-        loadbutton = wx.Button(panel, label='&Load')
+        loadbutton = wx.Button(self, id=wx.ID_OPEN)
         loadbutton.Bind(wx.EVT_BUTTON, self.onLoad)
+        self.stopbutton = wx.Button(self, id=wx.ID_STOP)
+        self.stopbutton.Bind(wx.EVT_BUTTON, self.onStopCommand)
+        self.stopbutton.Disable()
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
         button_sizer.Add(self.updatebutton, 0, wx.EXPAND)
         button_sizer.Add(savebutton, 0, wx.EXPAND)
         button_sizer.Add(loadbutton, 0, wx.EXPAND)
+        button_sizer.Add(self.stopbutton, 0, wx.EXPAND)
         
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.tree, 1, wx.EXPAND)
-        sizer.Add(button_sizer, 0, wx.EXPAND)
+        
         panel.SetSizer(sizer)
         
         hdr_config_dict[rootdir] = CompositeImage.HDRConfig('/tmp')
@@ -624,7 +634,10 @@ class TreeCtrlFrame(wx.Frame):
         hsizer = wx.BoxSizer(wx.HORIZONTAL)
         hsizer.Add(panel, 1, wx.EXPAND)
         hsizer.Add(self.hdrconfig_panel, 1, wx.EXPAND)
-        self.SetSizer(hsizer)
+        vsizer = wx.BoxSizer(wx.VERTICAL)
+        vsizer.Add(hsizer, 1, wx.EXPAND)
+        vsizer.Add(button_sizer, 0, wx.EXPAND)
+        self.SetSizer(vsizer)
         #sizer.Fit(self)
         self.Layout()
         
@@ -662,6 +675,7 @@ class TreeCtrlFrame(wx.Frame):
         hdr_config_dict[self.path] = self.hdrconfig_panel.hdr_config
 
     def onCommandUpdate(self, e):
+        
         v = e.GetValue()
         thread = e.GetThreadID()
         thread.join() #Ettl lehet, hogy belassul a GUI.
@@ -674,7 +688,13 @@ class TreeCtrlFrame(wx.Frame):
                 e.callback(v)
         
         if self.tree.iterator:
-            self.tree.executeNext()        
+            self.stopbutton.Enable()
+            self.tree.executeNext()
+
+    def onStopCommand(self, e):
+        self.tree.StopCommand()
+        self.stopbutton.Disable()
+        
 
     def ShowCustomDialog(self, fd_style):
         dlg = wx.FileDialog(self, "Choose a directory", style=fd_style)
