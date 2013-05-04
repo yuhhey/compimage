@@ -192,6 +192,12 @@ class CommandUpdate(wx.PyCommandEvent):
     def GetTaskID(self):
         return self.task_id
 
+    def SetThreadID(self, th_id):
+        self.th_id = th_id
+        
+    def GetThreadID(self):
+        return self.th_id
+
 
 class WorkerThread(TH.Thread):
     """Worker Thread Class."""
@@ -214,6 +220,7 @@ class WorkerThread(TH.Thread):
             event.result = 'Ok'
         event.SetValue(result)
         event.SetTaskID(self.task_id)
+        event.SetThreadID(self)
         wx.PostEvent(self._notify_window, event)
         
     def abort(self):
@@ -653,7 +660,9 @@ class TreeCtrlFrame(wx.Frame):
 
     def onCommandUpdate(self, e):
         v = e.GetValue()
-        task_id = e.task_id
+        thread = e.GetThreadID()
+        thread.join() #Ettl lehet, hogy belassul a GUI.
+        task_id = e.GetTaskID()
         if e.result == 'Failed':
             self.tree.processingFailed(task_id)
         else:
@@ -699,7 +708,7 @@ def treeIterator(tree, item):
 class TestExpandersApp(wx.App):
     def OnInit(self):
 
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/home/grof/Képek/')#media/misc/MM/Filmek/Nepal/CR2')#storage/Kepek/kepek_eredeti/CR2/2012_04_02') #
+        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/storage/Kepek/kepek_eredeti/CR2/') #
 
         frame.Show(True)
         self.SetTopWindow(frame)
