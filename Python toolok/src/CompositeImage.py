@@ -56,6 +56,8 @@ class CompositeImage(object):
         if key == 'Exif.Photo.ExposureTime':
             td = dates[-1] - dates[0]
             
+    def __delitem__(self,key):
+        del self._images[key]
     
     def __iter__(self):
         return iter(self._images.keys())
@@ -70,7 +72,7 @@ class CompositeImage(object):
             return self._images.keys()
         
     def keys(self):
-        return self.getFileList()
+        return self.getFilelist()
                 
 
 class CompositeImageCollector:
@@ -232,14 +234,52 @@ class CollectHDRStrategy:
             hdrs.insert(0, cic.getCompImage())
         return hdrs, sic
     
+    def parseMagicLanternSHFiles(self, d, sic, ext):
+        sh_files = [fn for fn in glob.glob(os.path.join(d,'HDR*.SH'))]
+        hdrs = []
+        for shfn in sh_files:
+            shf = open(shfn)
+            shf.readline()
+            shf.readline()
+            seq_lst = shf.readline()
+            img_prefix = 'IMG_'
+            start_idx = seq_lst.find(img_prefix) + len(img_prefix)
+            end_idx = seq_lst.find(img_prefix, start_idx) + len(img_prefix)
+            start_seq_num = int(seq_lst[start_idx:start_idx+4])
+            end_seq_num = int(seq_lst[end_idx:end_idx+4])
+            
+            #TODO nem kezeli jol az atfordulast
+            images = sic.getCompImage()
+            hdr = CompositeImage()
+            for idx in range(start_seq_num, end_seq_num+1):
+                fn = os.path.join(d, '%s%04d%s' %(img_prefix, idx, ext))
+                if fn in images:
+                    hdr.add(images[fn])
+                else: # stop this loop and drop the hdr
+        
+                    break
+            else:
+                hdrs.insert(0, hdr)
+                for fn in hdr.keys():
+                    del images[fn]
+                    
+        return hdrs, sic
+                
+
     def parseDir(self, d, hdr_config=None):
         if hdr_config == None:
             hdr_config = HDRConfig(os.getcwd())
         
+        #Parse the RAW files first
         path_with_wildcard = os.path.join(d, "*%s" % hdr_config.GetRawExt())
         fl = [fn for fn in glob.glob(path_with_wildcard)]
-        return self.parseFileList(fl, hdr_config)
- 
+        hdrs, sic = self.parseFileList(fl, hdr_config)
+        
+        print len(sic.getCompImage())
+        mlhdrs, sic = self.parseMagicLanternSHFiles(d, sic, hdr_config.GetRawExt())
+        print len(sic.getCompImage())
+        return hdrs+mlhdrs, sic
+            
       
 def timestampFromMetadata(simg):
     """ Returns (exposure started, exposure ended) of the image described by simg"""
