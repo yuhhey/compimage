@@ -328,6 +328,9 @@ class DirectoryExpanderPopup(ExpanderPopup):
         self.dir_expander.genHDR()
 
 
+def GlobStarFilter(path):
+    return glob.glob(os.path.join(path, '*'))
+
 class DirectoryExpander(Expander):
     def __init__(self, tree, path, itemID = None):
         #FIXME: turn it to assert
@@ -378,14 +381,14 @@ class DirectoryExpander(Expander):
             hdr_config_per_image.SetPrefix(actual_prefix)
             hdr_config_dict[target_path] = hdr_config_per_image
 
-    def expand(self):
+    def expand(self, filter=GlobStarFilter):
 
         if self.isExpanded():   
             return
         
         self.task_id = self.tree.processingStarted(self.itemID)
         
-        l = os.listdir(self.path)
+        l = filter(self.path)
         self.addSubdirsToTree(l)
         cmd = HDRParserCommand(self.path)
         WorkerThread(cmd, self.task_id, self.tree, self.HDRParsedCallback)        
@@ -594,7 +597,7 @@ class TreeCtrlWithImages(wx.TreeCtrl):
     def StopCommand(self):
         self._cancel_wanted=True
         self.iterator = None
-
+9
 
 class TreeCtrlFrame(wx.Frame):
     
@@ -718,7 +721,8 @@ class TreeCtrlFrame(wx.Frame):
             hdr_config_dict=pickle.loads(f.read())
             f.close()
             self._updateHDRConfigPanel()
-     
+
+    
 def treeIterator(tree, item):
     yield item
     child, cookie = tree.GetFirstChild(item)
@@ -731,7 +735,7 @@ def treeIterator(tree, item):
 class TestExpandersApp(wx.App):
     def OnInit(self):
 
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/storage/Kepek/kepek_eredeti/CR2/') #
+        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/')
 
         frame.Show(True)
         self.SetTopWindow(frame)
