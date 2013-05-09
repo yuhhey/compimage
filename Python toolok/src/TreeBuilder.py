@@ -83,7 +83,7 @@ class HDRConfigPanel(wx.Panel):
         value = int(self.maxdiff.GetValue())
         self.hdr_config.GetCheckers()[0].maxdiff = value
         print 'onMaxdiff'
-
+9
 
 class HDRConfigDialog(wx.Dialog):
     def __init__(self, *args, **kw):
@@ -231,15 +231,15 @@ class ExpanderPopup(wx.Menu):
     def __init__(self):
         wx.Menu.__init__(self)
 
-    def addItem(self, label, callback):
+    def AddItem(self, label, callback):
         item = wx.MenuItem(self, wx.NewId(), label)
         self.AppendItem(item)
         self.Bind(wx.EVT_MENU, callback, item)
         return item
     
-    def buildMenu(self, items):
+    def AddMenuItems(self, items):
         for l, c in items: 
-            self.addItem(l, c)    
+            self.AddItem(l, c)    
 
     
 class Expander(object):
@@ -257,7 +257,7 @@ class Expander(object):
         pass
         #raise NotImplementedError
     
-    def getPopupMenu(self, *args, **kwargs):
+    def GetPopupMenu(self, *args, **kwargs):
         raise NotImplementedError
     
     # TODO: megfontolandó, hogy ez különálló függvény legyen - e egy plusz tree paraméterrel
@@ -312,7 +312,7 @@ class DirectoryExpanderPopup(ExpanderPopup):
                       ("Symlinks", self.onSymlinks),
                       ("Generate HDR", self.onHDRGen)]
         
-        self.buildMenu(menu_items)
+        self.AddMenuItems(menu_items)
         
     def onHDRConf(self, evt):
         print evt, type(evt)
@@ -332,13 +332,11 @@ def GlobStarFilter(path):
     return glob.glob(os.path.join(path, '*'))
 
 class DirectoryExpander(Expander):
-    def __init__(self, tree, path, itemID = None):
+    def __init__(self, tree, path, itemID):
         #FIXME: turn it to assert
         if not os.path.isdir(path):
             raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
         self.path = path
-        if itemID == None:
-            itemID = tree.AddRoot(path)
         
         tree.SetItemHasChildren(itemID)
         self.expanded = False
@@ -395,7 +393,7 @@ class DirectoryExpander(Expander):
         self.expanded = True
         return self.task_id
  
-    def getPopupMenu(self):
+    def GetPopupMenu(self):
         return DirectoryExpanderPopup(self)
 
     def getPath(self):
@@ -414,6 +412,33 @@ class DirectoryExpander(Expander):
         self.tree.executeGen(CompositeImage.HDRGenerator(), self.itemID)
         
 
+class RootItemExpanderPopup(DirectoryExpanderPopup):
+    def __init__(self, d_expander):
+        DirectoryExpanderPopup.__init__(self, d_expander)
+        
+        root_menu_items = [("Change root", self.onChangeRoot)]
+        
+        self.AddMenuItems(root_menu_items)
+    
+    def onChangeRoot(self, evt):
+        dlg = wx.DirDialog(parent=None)
+        if wx.ID_OK == dlg.ShowModal():
+            path = dlg.GetPath()
+            tree = self.dir_expander.tree
+            tree.DeleteAllItems()
+            RootItemExpander(tree, path)
+        dlg.Destroy()
+        return None
+        
+
+class RootItemExpander(DirectoryExpander):
+    def __init__(self, tree, path):
+        itemID = tree.AddRoot(path)
+        DirectoryExpander.__init__(self, tree, path, itemID)
+        
+    def GetPopupMenu(self):
+        return RootItemExpanderPopup(self)
+
 class ImageExpander(Expander):
     def __init__(self, tree, itemID, image):
         Expander.__init__(self,tree, itemID)
@@ -428,7 +453,7 @@ class ImageSequenceExpanderPopup(ExpanderPopup):
         self.expander = expander
         menu_items = [("Generate", self.onGenerate),
                       ("Symlinks", self.onCreateSymlink)]
-        self.buildMenu(menu_items)
+        self.AddMenuItems(menu_items)
    
     def onGenerate(self, evt):
         self.expander.executeGen(CompositeImage.HDRGenerator())
@@ -462,7 +487,7 @@ class ImageSequenceExpander(Expander):
     def handleClick(self):
         pass
         
-    def getPopupMenu(self):
+    def GetPopupMenu(self):
         return ImageSequenceExpanderPopup(self)
 
     def getPath(self):
@@ -607,7 +632,7 @@ class TreeCtrlFrame(wx.Frame):
         self.tree = TreeCtrlWithImages(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
         
         self.path = rootdir
-        expander = DirectoryExpander(self.tree, rootdir)
+        expander = RootItemExpander(self.tree, rootdir)
         
         self.updatebutton = wx.Button(self, id=wx.ID_REFRESH)
         self.updatebutton.Bind(wx.EVT_BUTTON, self.onUpdate)
@@ -672,7 +697,7 @@ class TreeCtrlFrame(wx.Frame):
     def onRightClick(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
-        self.PopupMenu(data.getPopupMenu(), e.GetPoint())
+        self.PopupMenu(data.GetPopupMenu(), e.GetPoint())
 
     def onUpdate(self, e):
         hdr_config_dict[self.path] = self.hdrconfig_panel.hdr_config
@@ -700,7 +725,7 @@ class TreeCtrlFrame(wx.Frame):
         
 
     def ShowCustomDialog(self, fd_style):
-        dlg = wx.FileDialog(self, "Choose a directory", style=fd_style)
+        dlg = wx.FileDialog(self, "Choose a file", style=fd_style)
         if wx.ID_OK == dlg.ShowModal():
             return dlg.GetPath()
         dlg.Destroy()
@@ -735,7 +760,9 @@ def treeIterator(tree, item):
 class TestExpandersApp(wx.App):
     def OnInit(self):
 
+
         frame = TreeCtrlFrame(None, -1, 'Test expanders', '/')
+
 
         frame.Show(True)
         self.SetTopWindow(frame)
