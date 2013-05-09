@@ -202,6 +202,39 @@ class SameCameraChecker(Checker):
         return self.sn == sn
 
 
+class ExifValueChecker(Checker):
+    def __init__(self, exif_key, value=None):
+        self.exif_key = exif_key
+        self.orig_value = value
+        self.value = value
+    
+    def reset(self):
+        self.value = self.orig_value
+        
+    def __call__(self, comp_img, s_img):
+        value = s_img[self.exif_key]
+        if self.value == None:
+            self.value = value
+        return value == self.value
+
+def ISOChecker(value=None):
+    return ExifValueChecker('Exif.Photo.ISOSpeedRatings', value)
+
+def ExposureTimeChecker(value=None):
+    return ExifValueChecker('Exif.Photo.ExposureTime', value)
+
+def FNumberChecker(value=None):
+    return ExifValueChecker('Exif.Photo.FNumber', value)
+
+def FocalLengthChecker(value=None):
+    return ExifValueChecker('Exif.Photo.FocalLength', value)
+
+def LensModelChecker(value=None):
+    return ExifValueChecker('Exif.Canon.LensModel', value)
+
+def SelfTimerChecker(value=None):
+    return ExifValueChecker('Exif.CanonCs.Selftimer', value)
+
 class CollectHDRStrategy:
     def readFiles(self, fl):
         imgs = []
