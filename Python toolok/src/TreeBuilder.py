@@ -432,7 +432,7 @@ class RootItemExpanderPopup(DirectoryExpanderPopup):
         
 
 class RootItemExpander(DirectoryExpander):
-    def __init__(self, tree, path):
+    def __init__(self, tree	, path):
         itemID = tree.AddRoot(path)
         DirectoryExpander.__init__(self, tree, path, itemID)
         
@@ -476,7 +476,7 @@ class ImageSequenceExpander(Expander):
     def isExpanded(self):
         return self.expanded
     
-    def expand(self):
+    def expand(self, filter=None):
         # TODO: Minden egyes alkalommal újra kell számolni
         if self.isExpanded():
             return
@@ -622,7 +622,7 @@ class TreeCtrlWithImages(wx.TreeCtrl):
     def StopCommand(self):
         self._cancel_wanted=True
         self.iterator = None
-9
+
 
 class TreeCtrlFrame(wx.Frame):
     
@@ -767,6 +767,7 @@ class TestExpandersApp(wx.App):
         frame.Show(True)
         self.SetTopWindow(frame)
         return True
+
 
 hdr_config_dict = TreeDict()
 
