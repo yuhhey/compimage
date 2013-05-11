@@ -134,6 +134,9 @@ class SingleImageCollector(CompositeImageCollector):
     
     def collected(self):
         return False
+    
+    def GetImages(self):
+        return sorted([self._images[k] for k in self._images.keys()])
 
 
 class Checker:
@@ -235,7 +238,7 @@ def LensModelChecker(value=None):
 def SelfTimerChecker(value=None):
     return ExifValueChecker('Exif.CanonCs.Selftimer', value)
 
-class CollectHDRStrategy:
+class CollectSeqStrategy:
     def readFiles(self, fl):
         imgs = []
         for fn in fl:
@@ -244,14 +247,11 @@ class CollectHDRStrategy:
         imgs.sort(key=lambda si:(timestampFromMetadata(si))[0])
         return imgs
 
-    def parseFileList(self, fl, hdr_config=None):
-        
-        if hdr_config == None:
-            hdr_config = HDRConfig(os.getcwd())
-            
-        imgs = self.readFiles(fl)
-        
-        cic = CompositeImageCollector(hdr_config.GetCheckers())
+
+    def parseIMGList(self, imgs, seq_config):
+        if len(imgs) == 0:
+            return [], []
+        cic = CompositeImageCollector(seq_config.GetCheckers())
         sic = SingleImageCollector()
         cic.setNextCollector(sic)
         hdrs = []
@@ -259,12 +259,25 @@ class CollectHDRStrategy:
             if not cic.check(si):
                 if cic.collected():
                     hdrs.insert(0, cic.getCompImage())
-                cic = CompositeImageCollector(hdr_config.GetCheckers())
+                cic = CompositeImageCollector(seq_config.GetCheckers())
                 cic.check(si)
                 cic.setNextCollector(sic)
         
         if cic.collected():
             hdrs.insert(0, cic.getCompImage())
+        else:
+            sic.check(si)
+                
+        return hdrs, sic.GetImages()
+
+    def parseFileList(self, fl, seq_config=None):
+        
+        if seq_config == None:
+            seq_config = HDRConfig(os.getcwd())
+            
+        imgs = self.readFiles(fl)
+        
+        hdrs, sic = self.parseIMGList(imgs, seq_config)
         return hdrs, sic
     
     def parseMagicLanternSHFiles(self, d, sic, ext):
@@ -308,9 +321,9 @@ class CollectHDRStrategy:
         fl = [fn for fn in glob.glob(path_with_wildcard)]
         hdrs, sic = self.parseFileList(fl, hdr_config)
         
-        print len(sic.getCompImage())
+        print len(sic)
         mlhdrs, sic = self.parseMagicLanternSHFiles(d, sic, hdr_config.GetRawExt())
-        print len(sic.getCompImage())
+        print len(sic)
         return hdrs+mlhdrs, sic
             
       
@@ -346,12 +359,12 @@ class SymlinkGenerator:
         return 0
 
 
-class HDRConfig():
+class Config():
     """Contains all the configuration data used in HDR sequence handling and final image generation"""
-    def __init__(self,targetdir, raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}', checkers=[TimeStampChecker(7), AEBChecker(), SameCameraChecker()]):
+    def __init__(self,targetdir, checkers, raw_ext='.CR2', img_ext='.TIF', prefix='${dir}'):
         self.SetTargetDir(targetdir)
         self.SetRawExt(raw_ext)
-        self.SetImageExt(hdr_ext)
+        self.SetImageExt(img_ext)
         self.SetPrefix(prefix)
         self.SetCheckers(checkers)
         self.__index = 0
@@ -406,15 +419,38 @@ class HDRConfig():
         expanded_prefix = string.Template(self._prefix)
         return expanded_prefix.substitute(dir = os.path.basename(os.path.dirname(fn)))
         
-        
     def __str__(self):
-        return "HDRConfig:\n" + \
-               "targetDir:%s\n" % self.GetTargetDir() + \
+        return "targetDir:%s\n" % self.GetTargetDir() + \
                "rawExt:%s\n" % self.GetRawExt() + \
                "imgExt:%s\n" % self.GetImageExt() + \
                "prefix:%s\n" % self.GetPrefix()
 
 
+class HDRConfig(Config):
+    def __init__(self, targetdir, checkers=[TimeStampChecker(7), AEBChecker(), SameCameraChecker()], raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}'):
+        Config.__init__(self, targetdir, checkers, raw_ext, hdr_ext, prefix)
+
+    def __str__(self):
+        return "HDRConfig:\n" + \
+               Config.__str__(self)
+
+               
+class PanoWeakConfig(Config):
+    def __init__(self, targetdir, raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}'):
+        checkers = [TimeStampChecker(7),
+                    SameCameraChecker(),
+                    ISOChecker(),
+                    FNumberChecker(),
+                    FocalLengthChecker(),
+                    LensModelChecker(),
+                    SelfTimerChecker()]
+        Config.__init__(self, targetdir, checkers, raw_ext, hdr_ext, prefix)
+
+    def __str__(self):
+        return "PanoWeakConfig:\n" + \
+               Config.__str__(self)
+               
+               
 class HDRGenerator():
     def __init__(self):
         pass    
