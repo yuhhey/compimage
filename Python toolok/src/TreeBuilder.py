@@ -17,8 +17,8 @@ class HDRConfigPanel(wx.Panel):
         del kw['hdr_config']
         self.path = kw['path']
         del kw['path']
-        #self.hdr_config_dict = kw['hdr_config_dict']
-        #del kw['hdr_config_dict']
+        #self.seq_config_dict = kw['seq_config_dict']
+        #del kw['seq_config_dict']
         
         super(HDRConfigPanel, self).__init__(*args, **kw)
         self.InitUI()
@@ -83,7 +83,7 @@ class HDRConfigPanel(wx.Panel):
         value = int(self.maxdiff.GetValue())
         self.hdr_config.GetCheckers()[0].maxdiff = value
         print 'onMaxdiff'
-9
+
 
 class HDRConfigDialog(wx.Dialog):
     def __init__(self, *args, **kw):
@@ -147,10 +147,11 @@ class HDRParserCommand(Command):
         self.path = path
         
     def __call__(self):
-        hdr_config = hdr_config_dict[self.path]
+        hdr_config = seq_config_dict[self.path]
         try: 
-            hdrs, single_images = CompositeImage.CollectHDRStrategy().parseDir(self.path, hdr_config)
-            return (hdrs, single_images)
+            hdrs, single_images = CompositeImage.CollectSeqStrategy().parseDir(self.path, hdr_config)
+            panos, single_images = CompositeImage.CollectSeqStrategy().parseIMGList(single_images, CompositeImage.PanoWeakConfig(hdr_config.GetTargetDir()))
+            return (hdrs, panos, single_images)
         except IOError:  # handling the case when there are no raw files
             print "No RAW input to parse in %s" % self.path    
 
@@ -163,7 +164,7 @@ class HDRSeqGenCommand(Command):
         self.target_path = target_path
         
     def __call__(self):
-        hdr_config = hdr_config_dict[self.target_path]
+        hdr_config = seq_config_dict[self.target_path]
         return self.gen(self.seq, hdr_config)
 
 
@@ -329,7 +330,7 @@ class DirectoryExpanderPopup(ExpanderPopup):
 
 
 def GlobStarFilter(path):
-    return glob.glob(os.path.join(path, '*'))
+    return [os.path.basename(d) for d in glob.glob(os.path.join(path, '*'))]
 
 class DirectoryExpander(Expander):
     def __init__(self, tree, path, itemID):
@@ -352,11 +353,14 @@ class DirectoryExpander(Expander):
                 child = self.tree.AppendItem(self.itemID, fn)
                 DirectoryExpander(self.tree, fullpath, child)
                       
-    def HDRParsedCallback(self, (hdrs, single_images)):
+    def HDRParsedCallback(self, (hdrs, panos, single_images)):
         self.tree.clearState(self.itemID)
         
         n_hdrs = len(hdrs)
         
+        print "%d panos found" % len(panos)
+        for p in panos:
+            print sorted(p.keys())
         
         item_text = self.tree.GetItemText(self.itemID)
         item_text = item_text + "(%d hdrs)" % n_hdrs
@@ -365,7 +369,7 @@ class DirectoryExpander(Expander):
         if n_hdrs == 0:
             return
         
-        hdr_config = hdr_config_dict[self.path]
+        hdr_config = seq_config_dict[self.path]
         
         # Itt kihasznaljuk, hogy az osszes hdr egy konyvtarbol van.
         prefix = hdr_config.ExpandPrefix(hdrs[0].getFilelist()[0])
@@ -377,7 +381,7 @@ class DirectoryExpander(Expander):
             ImageSequenceExpander(self.tree, target_path, child, seq)
             hdr_config_per_image = copy.deepcopy(hdr_config)
             hdr_config_per_image.SetPrefix(actual_prefix)
-            hdr_config_dict[target_path] = hdr_config_per_image
+            seq_config_dict[target_path] = hdr_config_per_image
 
     def expand(self, filter=GlobStarFilter):
 
@@ -654,8 +658,8 @@ class TreeCtrlFrame(wx.Frame):
         
         panel.SetSizer(sizer)
         
-        hdr_config_dict[rootdir] = CompositeImage.HDRConfig('/tmp')
-        self.hdrconfig_panel = HDRConfigPanel(hdr_config=hdr_config_dict[rootdir],
+        seq_config_dict[rootdir] = CompositeImage.HDRConfig('/tmp')
+        self.hdrconfig_panel = HDRConfigPanel(hdr_config=seq_config_dict[rootdir],
                                               path=rootdir,
                                               parent=self)
         
@@ -684,7 +688,7 @@ class TreeCtrlFrame(wx.Frame):
         
 
     def _updateHDRConfigPanel(self):
-        hdr_config = hdr_config_dict[self.path]
+        hdr_config = seq_config_dict[self.path]
         self.hdrconfig_panel.setConfig(hdr_config, self.path)
 
     def onClickItem(self, e):
@@ -700,7 +704,7 @@ class TreeCtrlFrame(wx.Frame):
         self.PopupMenu(data.GetPopupMenu(), e.GetPoint())
 
     def onUpdate(self, e):
-        hdr_config_dict[self.path] = self.hdrconfig_panel.hdr_config
+        seq_config_dict[self.path] = self.hdrconfig_panel.hdr_config
 
     def onCommandUpdate(self, e):
         
@@ -735,15 +739,15 @@ class TreeCtrlFrame(wx.Frame):
         fn = self.ShowCustomDialog(wx.FD_SAVE)
         if fn:
             fout=open(fn, 'w')
-            fout.write(pickle.dumps(hdr_config_dict))
+            fout.write(pickle.dumps(seq_config_dict))
             fout.close()
     
     def onLoad(self, e):
         fn = self.ShowCustomDialog(wx.FD_OPEN)
         if fn:
-            global hdr_config_dict
+            global seq_config_dict
             f=open(fn, "r")
-            hdr_config_dict=pickle.loads(f.read())
+            seq_config_dict=pickle.loads(f.read())
             f.close()
             self._updateHDRConfigPanel()
 
@@ -769,7 +773,7 @@ class TestExpandersApp(wx.App):
         return True
 
 
-hdr_config_dict = TreeDict()
+seq_config_dict = TreeDict()
 
 
 if __name__ == "__main__":
