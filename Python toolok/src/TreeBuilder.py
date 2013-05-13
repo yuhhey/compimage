@@ -141,7 +141,7 @@ class Command:
         time.sleep(5)
         
 
-class HDRParserCommand(Command):
+class SeqParserCommand(Command):
     def __init__(self, path):
         Command.__init__(self)
         self.path = path
@@ -150,6 +150,7 @@ class HDRParserCommand(Command):
         hdr_config = seq_config_dict[self.path]
         try: 
             hdrs, single_images = CompositeImage.CollectSeqStrategy().parseDir(self.path, hdr_config)
+            # TODO: Még a HDR-eket nem vizsgálja
             panos, single_images = CompositeImage.CollectSeqStrategy().parseIMGList(single_images, CompositeImage.PanoWeakConfig(hdr_config.GetTargetDir()))
             return (hdrs, panos, single_images)
         except IOError:  # handling the case when there are no raw files
@@ -311,7 +312,7 @@ class DirectoryExpanderPopup(ExpanderPopup):
         menu_items = [("HDR config", self.onHDRConf),
                       ("Panorama config", self.onPanoramaConf),
                       ("Symlinks", self.onSymlinks),
-                      ("Generate HDR", self.onHDRGen)]
+                      ("Generate recursively", self.onGen)]
         
         self.AddMenuItems(menu_items)
         
@@ -325,8 +326,8 @@ class DirectoryExpanderPopup(ExpanderPopup):
     def onSymlinks(self, evt):
         self.dir_expander.genSymlink()
         
-    def onHDRGen(self,evt):
-        self.dir_expander.genHDR()
+    def onGen(self,evt):
+        self.dir_expander.generate()
 
 
 def GlobStarFilter(path):
@@ -353,35 +354,48 @@ class DirectoryExpander(Expander):
                 child = self.tree.AppendItem(self.itemID, fn)
                 DirectoryExpander(self.tree, fullpath, child)
                       
-    def HDRParsedCallback(self, (hdrs, panos, single_images)):
+
+    def UpdateItemText(self, text):
+        item_text = self.tree.GetItemText(self.itemID)
+        item_text = item_text + text
+        self.tree.SetItemText(self.itemID, item_text)
+
+
+    def AddSeqsItems(self, seqs, seq_config, seq_expander):
+        if len(seqs) == 0:
+            return
+        # Itt kihasznaljuk, hogy az osszes seq egy konyvtarbol van.
+        prefix = seq_config.ExpandPrefix(seqs[0].getFilelist()[0])
+        seq_path = seq_config.GetTargetDir()
+        for fn, seq in enumerate(reversed(seqs)):
+            actual_prefix = prefix + "_%d" % fn #seq_config.GetIndex()
+            target_path = os.path.join(seq_path, actual_prefix)
+            child = self.tree.AppendItem(self.itemID, target_path)
+            seq_expander(self.tree, target_path, child, seq)
+            seq_config_per_image = copy.deepcopy(seq_config)
+            seq_config_per_image.SetPrefix(actual_prefix)
+            seq_config_dict[target_path] = seq_config_per_image
+
+    def SeqParsedCallback(self, (hdrs, panos, single_images)):
         self.tree.clearState(self.itemID)
         
         n_hdrs = len(hdrs)
         
-        print "%d panos found" % len(panos)
-        for p in panos:
-            print sorted(p.keys())
+        n_panos = len(panos)
+         
+        text = "(%d hdrs, %d panos)" % (n_hdrs, n_panos)
+        self.UpdateItemText(text)
         
-        item_text = self.tree.GetItemText(self.itemID)
-        item_text = item_text + "(%d hdrs)" % n_hdrs
-        self.tree.SetItemText(self.itemID, item_text)
-        
-        if n_hdrs == 0:
-            return
+        #if n_hdrs == 0:
+        #    return
         
         hdr_config = seq_config_dict[self.path]
         
-        # Itt kihasznaljuk, hogy az osszes hdr egy konyvtarbol van.
-        prefix = hdr_config.ExpandPrefix(hdrs[0].getFilelist()[0])
-        hdr_path = hdr_config.GetTargetDir()
-        for fn, seq in enumerate(reversed(hdrs)):
-            actual_prefix = prefix + "_%d" % fn #hdr_config.GetIndex()  
-            target_path = os.path.join(hdr_path, actual_prefix)
-            child = self.tree.AppendItem(self.itemID, target_path)
-            ImageSequenceExpander(self.tree, target_path, child, seq)
-            hdr_config_per_image = copy.deepcopy(hdr_config)
-            hdr_config_per_image.SetPrefix(actual_prefix)
-            seq_config_dict[target_path] = hdr_config_per_image
+        self.AddSeqsItems(hdrs, hdr_config, HDRExpander)
+        pano_config = copy.deepcopy(hdr_config)
+        pano_config.SetPrefix("PANO")
+        pano_config.ResetIndex()
+        self.AddSeqsItems(panos, pano_config, PanoExpander)
 
     def expand(self, filter=GlobStarFilter):
 
@@ -392,8 +406,8 @@ class DirectoryExpander(Expander):
         
         l = filter(self.path)
         self.addSubdirsToTree(l)
-        cmd = HDRParserCommand(self.path)
-        WorkerThread(cmd, self.task_id, self.tree, self.HDRParsedCallback)        
+        cmd = SeqParserCommand(self.path)
+        WorkerThread(cmd, self.task_id, self.tree, self.SeqParsedCallback)        
         self.expanded = True
         return self.task_id
  
@@ -412,7 +426,7 @@ class DirectoryExpander(Expander):
     def genSymlink(self):
         self.tree.executeGen(CompositeImage.SymlinkGenerator(), self.itemID)
 
-    def genHDR(self):
+    def generate(self):
         self.tree.executeGen(CompositeImage.HDRGenerator(), self.itemID)
         
 
@@ -500,12 +514,19 @@ class ImageSequenceExpander(Expander):
     def ExecuteGenCallback(self, result):
         pass
     
+    
+
+class HDRExpander(ImageSequenceExpander):
     def executeGen(self, gen):
         cmd = HDRSeqGenCommand(self.seq, self.target_path, gen)
         task_id = self.tree.processingStarted(self.itemID)
         WorkerThread(cmd, task_id, self.tree, None)
         return task_id
-        
+
+
+class PanoExpander(ImageSequenceExpander):
+    def executeGen(self, gen):
+        print "PanoExpander"
     
 class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
