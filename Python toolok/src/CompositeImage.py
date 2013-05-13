@@ -410,6 +410,9 @@ class Config():
         self.__index += 1
         return i
     
+    def ResetIndex(self):
+        self.__index = 0
+            
     def GetBasename(self,fn):
         bn = os.path.basename(fn)
         dn = os.path.basename(os.path.dirname(fn))
@@ -489,7 +492,12 @@ class HDRGenerator():
             os.remove(fn)
         return result
 
-       
+
+class PanoGenerator():
+    def __call__(self, cimg, config):
+        print self.__name__ 
+        
+               
 class ShellScriptWriter:
     """Represents script logic. Returns script elements as strings"""
     def __init__(self):
