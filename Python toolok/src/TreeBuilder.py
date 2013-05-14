@@ -10,6 +10,7 @@ import time
 import glob
 import pickle
 
+
 class HDRConfigPanel(wx.Panel):
     
     def __init__(self, *args, **kw):
@@ -157,7 +158,7 @@ class SeqParserCommand(Command):
             print "No RAW input to parse in %s" % self.path    
 
 
-class HDRSeqGenCommand(Command):
+class SeqGenCommand(Command):
     def __init__(self, seq, target_path, gen):
         Command.__init__(self)
         self.seq = seq
@@ -169,9 +170,9 @@ class HDRSeqGenCommand(Command):
         return self.gen(self.seq, hdr_config)
 
 
-# Define a new custom event type
 wxEVT_COMMAND_UPDATE = wx.NewEventType()
 EVT_COMMAND_UPDATE = wx.PyEventBinder(wxEVT_COMMAND_UPDATE, 1)
+
 
 class CommandUpdate(wx.PyCommandEvent):
     def __init__(self, callback):
@@ -333,6 +334,7 @@ class DirectoryExpanderPopup(ExpanderPopup):
 def GlobStarFilter(path):
     return [os.path.basename(d) for d in glob.glob(os.path.join(path, '*'))]
 
+
 class DirectoryExpander(Expander):
     def __init__(self, tree, path, itemID):
         #FIXME: turn it to assert
@@ -427,7 +429,7 @@ class DirectoryExpander(Expander):
         self.tree.executeGen(CompositeImage.SymlinkGenerator(), self.itemID)
 
     def generate(self):
-        self.tree.executeGen(CompositeImage.HDRGenerator(), self.itemID)
+        self.tree.executeGen(None, self.itemID)
         
 
 class RootItemExpanderPopup(DirectoryExpanderPopup):
@@ -456,6 +458,7 @@ class RootItemExpander(DirectoryExpander):
         
     def GetPopupMenu(self):
         return RootItemExpanderPopup(self)
+
 
 class ImageExpander(Expander):
     def __init__(self, tree, itemID, image):
@@ -502,6 +505,7 @@ class ImageSequenceExpander(Expander):
             child = self.tree.AppendItem(self.itemID, os.path.basename(img))
             ImageExpander(self.tree, child, self.seq[img])
         self.expanded = True
+
     def handleClick(self):
         pass
         
@@ -514,20 +518,32 @@ class ImageSequenceExpander(Expander):
     def ExecuteGenCallback(self, result):
         pass
     
-    
+    def __execCmd(self, gen):
+        cmd = SeqGenCommand(self.seq, self.target_path, gen)
+        task_id = self.tree.processingStarted(self.itemID)
+        WorkerThread(cmd, task_id, self.tree, None)
+        return task_id
+
 
 class HDRExpander(ImageSequenceExpander):
     def executeGen(self, gen):
-        cmd = HDRSeqGenCommand(self.seq, self.target_path, gen)
-        task_id = self.tree.processingStarted(self.itemID)
-        WorkerThread(cmd, task_id, self.tree, None)
+        if gen == None:
+            gen = CompositeImage.HDRGenerator()
+            
+        task_id = self.__execCmd(gen)
         return task_id
 
 
 class PanoExpander(ImageSequenceExpander):
     def executeGen(self, gen):
         print "PanoExpander"
-    
+        if gen == None:
+            gen = CompositeImage.PanoGenerator()
+            
+        task_id = self.__execCmd(gen)
+        return task_id
+
+
 class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
     def __init__(self):
