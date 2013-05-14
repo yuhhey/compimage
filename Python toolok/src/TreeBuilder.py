@@ -152,7 +152,7 @@ class SeqParserCommand(Command):
         try: 
             hdrs, single_images = CompositeImage.CollectSeqStrategy().parseDir(self.path, hdr_config)
             # TODO: Még a HDR-eket nem vizsgálja
-            panos, single_images = CompositeImage.CollectSeqStrategy().parseIMGList(single_images, CompositeImage.PanoWeakConfig(hdr_config.GetTargetDir()))
+            panos, single_images = CompositeImage.CollectSeqStrategy().parseIMGList(single_images, CompositeImage.PanoStrongConfig(hdr_config.GetTargetDir(), 25))
             return (hdrs, panos, single_images)
         except IOError:  # handling the case when there are no raw files
             print "No RAW input to parse in %s" % self.path    
