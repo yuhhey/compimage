@@ -7,6 +7,7 @@ from math import floor
 import subprocess
 import glob
 import string
+#import fraction
 
  
 class SingleImage(object):
@@ -216,9 +217,12 @@ class ExifValueChecker(Checker):
         
     def __call__(self, comp_img, s_img):
         value = s_img[self.exif_key]
+        print "ExifValueChecker: %s=%s", (self.exif_key, str(value)), type(value), value
         if self.value == None:
             self.value = value
-        return value == self.value
+        result = (value == self.value)
+        print result
+        return result
 
 def ISOChecker(value=None):
     return ExifValueChecker('Exif.Photo.ISOSpeedRatings', value)
@@ -244,13 +248,13 @@ class CollectSeqStrategy:
         for fn in fl:
             imgs.append(SingleImage(fn))
         
-        imgs.sort(key=lambda si:(timestampFromMetadata(si))[0])
         return imgs
 
 
     def parseIMGList(self, imgs, seq_config):
         if len(imgs) == 0:
             return [], []
+        imgs.sort(key=lambda si:(timestampFromMetadata(si))[0])
         cic = CompositeImageCollector(seq_config.GetCheckers())
         sic = SingleImageCollector()
         cic.setNextCollector(sic)
@@ -439,8 +443,8 @@ class HDRConfig(Config):
 
                
 class PanoWeakConfig(Config):
-    def __init__(self, targetdir, raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}'):
-        checkers = [TimeStampChecker(7),
+    def __init__(self, targetdir, maxdiff=7, raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}'):
+        checkers = [TimeStampChecker(maxdiff),
                     SameCameraChecker(),
                     ISOChecker(),
                     FNumberChecker(),
@@ -453,7 +457,20 @@ class PanoWeakConfig(Config):
         return "PanoWeakConfig:\n" + \
                Config.__str__(self)
                
-               
+class PanoStrongConfig(Config):
+    def __init__(self, targetdir, maxdiff=7, raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}'):
+        checkers = [TimeStampChecker(maxdiff),
+                    SameCameraChecker(),
+                    ISOChecker(50),
+                    FNumberChecker(),
+                    FocalLengthChecker(),
+                    LensModelChecker(),
+                    SelfTimerChecker(20)]
+        Config.__init__(self, targetdir, checkers, raw_ext, hdr_ext, prefix)
+
+    def __str__(self):
+        return "PanoWeakConfig:\n" + \
+               Config.__str__(self)               
 class HDRGenerator():
     def __init__(self):
         pass    
