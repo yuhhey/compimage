@@ -217,7 +217,7 @@ class ExifValueChecker(Checker):
         
     def __call__(self, comp_img, s_img):
         value = s_img[self.exif_key]
-        print "ExifValueChecker: %s=%s", (self.exif_key, str(value)), type(value), value
+        print "ExifValueChecker: %s=%s" % (self.exif_key, str(value)), type(value), value
         if self.value == None:
             self.value = value
         result = (value == self.value)
@@ -456,6 +456,7 @@ class PanoWeakConfig(Config):
     def __str__(self):
         return "PanoWeakConfig:\n" + \
                Config.__str__(self)
+   
                
 class PanoStrongConfig(Config):
     def __init__(self, targetdir, maxdiff=7, raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}'):
@@ -471,6 +472,8 @@ class PanoStrongConfig(Config):
     def __str__(self):
         return "PanoWeakConfig:\n" + \
                Config.__str__(self)               
+
+
 class HDRGenerator():
     def __init__(self):
         pass    
