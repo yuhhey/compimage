@@ -18,8 +18,6 @@ class HDRConfigPanel(wx.Panel):
         del kw['hdr_config']
         self.path = kw['path']
         del kw['path']
-        #self.seq_config_dict = kw['seq_config_dict']
-        #del kw['seq_config_dict']
         
         super(HDRConfigPanel, self).__init__(*args, **kw)
         self.InitUI()
@@ -152,7 +150,7 @@ class SeqParserCommand(Command):
         try: 
             hdrs, single_images = CompositeImage.CollectSeqStrategy().parseDir(self.path, hdr_config)
             # TODO: Még a HDR-eket nem vizsgálja
-            panos, single_images = CompositeImage.CollectSeqStrategy().parseIMGList(single_images, CompositeImage.PanoStrongConfig(hdr_config.GetTargetDir(), 25))
+            panos, single_images = CompositeImage.CollectSeqStrategy().parseIMGList(single_images, CompositeImage.PanoWeakConfig(hdr_config.GetTargetDir(), 25))
             return (hdrs, panos, single_images)
         except IOError:  # handling the case when there are no raw files
             print "No RAW input to parse in %s" % self.path    
@@ -303,6 +301,9 @@ class Expander(object):
 
     def getPath(self):
         return self.path
+    
+    def ConfigKey(self):
+        raise NotImplementedError
 
         
 class DirectoryExpanderPopup(ExpanderPopup):
@@ -363,7 +364,7 @@ class DirectoryExpander(Expander):
         self.tree.SetItemText(self.itemID, item_text)
 
 
-    def AddSeqsItems(self, seqs, seq_config, seq_expander):
+    def AddSeqsItems(self, seqs, seq_config, seq_expander_cls):
         if len(seqs) == 0:
             return
         # Itt kihasznaljuk, hogy az osszes seq egy konyvtarbol van.
@@ -373,10 +374,10 @@ class DirectoryExpander(Expander):
             actual_prefix = prefix + "_%d" % fn #seq_config.GetIndex()
             target_path = os.path.join(seq_path, actual_prefix)
             child = self.tree.AppendItem(self.itemID, target_path)
-            seq_expander(self.tree, target_path, child, seq)
+            seq_expander = seq_expander_cls(self.tree, self.path, target_path, child, seq)
             seq_config_per_image = copy.deepcopy(seq_config)
             seq_config_per_image.SetPrefix(actual_prefix)
-            seq_config_dict[target_path] = seq_config_per_image
+            seq_config_dict[seq_expander.ConfigKey()] = seq_config_per_image
 
     def SeqParsedCallback(self, (hdrs, panos, single_images)):
         self.tree.clearState(self.itemID)
@@ -416,7 +417,7 @@ class DirectoryExpander(Expander):
     def GetPopupMenu(self):
         return DirectoryExpanderPopup(self)
 
-    def getPath(self):
+    def ConfigKey(self):
         return self.path
     
     def handleClick(self):
@@ -484,14 +485,14 @@ class ImageSequenceExpanderPopup(ExpanderPopup):
                       
 
 class ImageSequenceExpander(Expander):
-    def __init__(self, tree, target_path, itemID, img_seq):
+    def __init__(self, tree, source_path, target_path, itemID, img_seq):
         Expander.__init__(self, tree, itemID)
-        self.target_path=target_path
+        self.target_path = target_path
+        self.source_path = source_path
         self.seq = img_seq
         if len(self.seq) > 0:
             tree.SetItemHasChildren(itemID)
             
-        #self.path = img_seq.getFilelist()[0]
         self.expanded = False
      
     def isExpanded(self):
@@ -512,9 +513,6 @@ class ImageSequenceExpander(Expander):
     def GetPopupMenu(self):
         return ImageSequenceExpanderPopup(self)
 
-    def getPath(self):
-        return self.target_path
-
     def ExecuteGenCallback(self, result):
         pass
     
@@ -524,7 +522,17 @@ class ImageSequenceExpander(Expander):
         WorkerThread(cmd, task_id, self.tree, None)
         return task_id
 
-
+    def _ConfigKey(self, s):
+        if self.target_path[0] == '/': # os.path.join discards anything if an absolute path appears in the parameter list
+            target_path_start = 1
+        else:
+            target_path_start = 0
+        return os.path.join(self.source_path, s, self.target_path[target_path_start:])
+    
+    def ConfigKey(self):
+        raise NotImplementedError
+    
+    
 class HDRExpander(ImageSequenceExpander):
     def executeGen(self, gen):
         if gen == None:
@@ -532,6 +540,9 @@ class HDRExpander(ImageSequenceExpander):
             
         task_id = self.__execCmd(gen)
         return task_id
+
+    def ConfigKey(self):
+        return self._ConfigKey('HDR')
 
 
 class PanoExpander(ImageSequenceExpander):
@@ -543,7 +554,10 @@ class PanoExpander(ImageSequenceExpander):
         task_id = self.__execCmd(gen)
         return task_id
 
-
+    def ConfigKey(self):
+        return self._ConfigKey('PANO')
+    
+    
 class TreeDict:
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
     def __init__(self):
@@ -672,7 +686,7 @@ class TreeCtrlFrame(wx.Frame):
         panel = wx.Panel(self, -1)
         self.tree = TreeCtrlWithImages(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
         
-        self.path = rootdir
+        self.config_key = rootdir
         expander = RootItemExpander(self.tree, rootdir)
         
         self.updatebutton = wx.Button(self, id=wx.ID_REFRESH)
@@ -725,14 +739,14 @@ class TreeCtrlFrame(wx.Frame):
         
 
     def _updateHDRConfigPanel(self):
-        hdr_config = seq_config_dict[self.path]
-        self.hdrconfig_panel.setConfig(hdr_config, self.path)
+        hdr_config = seq_config_dict[self.config_key]
+        self.hdrconfig_panel.setConfig(hdr_config, self.config_key)
 
     def onClickItem(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
         data.handleClick()
-        self.path = data.getPath()
+        self.config_key = data.ConfigKey()
         self._updateHDRConfigPanel()
                 
     def onRightClick(self, e):
@@ -741,7 +755,7 @@ class TreeCtrlFrame(wx.Frame):
         self.PopupMenu(data.GetPopupMenu(), e.GetPoint())
 
     def onUpdate(self, e):
-        seq_config_dict[self.path] = self.hdrconfig_panel.hdr_config
+        seq_config_dict[self.config_key] = self.hdrconfig_panel.hdr_config
 
     def onCommandUpdate(self, e):
         
