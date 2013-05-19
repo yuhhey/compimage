@@ -529,7 +529,7 @@ class PanoGenerator():
         self.pano.writeData(ofs)
         del ofs
         
-        return None
+        return 0
         
                
 class ShellScriptWriter:

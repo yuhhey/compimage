@@ -164,8 +164,8 @@ class SeqGenCommand(Command):
         self.target_path = target_path
         
     def __call__(self):
-        hdr_config = seq_config_dict[self.target_path]
-        return self.gen(self.seq, hdr_config)
+        config = seq_config_dict[self.target_path]
+        return self.gen(self.seq, config)
 
 
 wxEVT_COMMAND_UPDATE = wx.NewEventType()
