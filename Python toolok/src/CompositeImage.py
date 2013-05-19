@@ -345,9 +345,9 @@ class SymlinkGenerator:
     def __init__(self):
         self.targetDir=""
         
-    def __call__(self, cimg, hdr_config):
-        target_dir = hdr_config.GetTargetDir()
-        raw_ext = hdr_config.GetRawExt()
+    def __call__(self, cimg, config):
+        target_dir = config.GetTargetDir()
+        raw_ext = config.GetRawExt()
         raw_dir = os.path.join(target_dir, raw_ext[1:])
         
         
@@ -356,7 +356,7 @@ class SymlinkGenerator:
             
         os.chdir(raw_dir)
         for f in cimg.getFilelist():
-            ln = hdr_config.GetBasename(f)
+            ln = config.GetBasename(f)
             if not os.path.exists(ln):
                 # TODO wrapper, mert csak unixon működik. Windows-on lehetne shortcutot kreálni
                 os.symlink(f, ln)
@@ -432,8 +432,14 @@ class Config():
                "rawExt:%s\n" % self.GetRawExt() + \
                "imgExt:%s\n" % self.GetImageExt() + \
                "prefix:%s\n" % self.GetPrefix()
-
-
+    
+    def RawnameToImagename(self, f):
+        image_subdir = self.GetImageSubdir()
+        img_name = os.path.join(self.GetTargetDir(),
+                                image_subdir,
+                                os.path.splitext(self.GetBasename(f))[0]+self.GetImageExt())
+        return img_name
+        
 class HDRConfig(Config):
     def __init__(self, targetdir, checkers=[TimeStampChecker(7), AEBChecker(), SameCameraChecker()], raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}'):
         Config.__init__(self, targetdir, checkers, raw_ext, hdr_ext, prefix)
@@ -480,17 +486,9 @@ class HDRGenerator():
         pass    
         
     def __call__(self, cimg, hdr_config):
-        
-        def RawnameToImagename(f):
-            image_subdir = hdr_config.GetImageSubdir()
-            img_name = os.path.join(hdr_config.GetTargetDir(),
-                                    image_subdir,
-                                    os.path.splitext(hdr_config.GetBasename(f))[0]+hdr_config.GetImageExt())
-            return img_name
-        
         fl = cimg.getFilelist()
         
-        tif_list = [RawnameToImagename(f) for f in fl]
+        tif_list = [hdr_config.RawnameToImagename(f) for f in fl]
         prefix = hdr_config.ExpandPrefix(fl[0])
         pto_file = os.path.join(hdr_config.GetTargetDir(), prefix+".pto")
         tmp_prefix = 'tmp_' + prefix +'_'
@@ -516,19 +514,22 @@ class HDRGenerator():
 
 class PanoGenerator():
     def __call__(self, cimg, config):
-        print self.__name__
+        fl = cimg.getFilelist()
+        tif_list = [config.RawnameToImagename(f) for f in fl]
         self.pano = hsi.Panorama()
-        fl = cimg.getFilelist() 
-        for fn in fl:
-            uj_kep=hsi.SrcPanoImage(fajlnev)
+         
+        for fn in sorted(tif_list):
+            uj_kep=hsi.SrcPanoImage(fn)
             #uj_kep.setExifCropFactor(crop_factor)
             self.pano.addImage(uj_kep)
             
-        prefix = hdr_config.ExpandPrefix(fl[0])
-        pto_file = os.path.join(hdr_config.GetTargetDir(), prefix+".pto")
+        prefix = config.ExpandPrefix(fl[0])
+        pto_file = os.path.join(config.GetTargetDir(), prefix+".pto")
         ofs=hsi.ofstream(pto_file)
-        self.p.writeData(ofs)
+        self.pano.writeData(ofs)
         del ofs
+        
+        return None
         
                
 class ShellScriptWriter:

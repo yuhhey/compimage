@@ -424,7 +424,7 @@ class DirectoryExpander(Expander):
         pass
 
     def executeGen(self,gen):
-        return self.expand()
+        return self.expand(gen=None)
 
     def genSymlink(self):
         self.tree.executeGen(CompositeImage.SymlinkGenerator(), self.itemID)
@@ -478,7 +478,7 @@ class ImageSequenceExpanderPopup(ExpanderPopup):
         self.AddMenuItems(menu_items)
    
     def onGenerate(self, evt):
-        self.expander.executeGen(CompositeImage.HDRGenerator())
+        self.expander.executeGen(gen=None)
         
     def onCreateSymlink(self,evt):
         self.expander.executeGen(CompositeImage.SymlinkGenerator())
@@ -516,7 +516,7 @@ class ImageSequenceExpander(Expander):
     def ExecuteGenCallback(self, result):
         pass
     
-    def __execCmd(self, gen):
+    def _execCmd(self, gen):
         cmd = SeqGenCommand(self.seq, self.target_path, gen)
         task_id = self.tree.processingStarted(self.itemID)
         WorkerThread(cmd, task_id, self.tree, None)
@@ -547,11 +547,11 @@ class HDRExpander(ImageSequenceExpander):
 
 class PanoExpander(ImageSequenceExpander):
     def executeGen(self, gen):
-        print "PanoExpander"
+        print "PanoExpander", type(self)
         if gen == None:
             gen = CompositeImage.PanoGenerator()
             
-        task_id = self.__execCmd(gen)
+        task_id = self._execCmd( gen)
         return task_id
 
     def ConfigKey(self):
