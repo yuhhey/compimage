@@ -7,7 +7,8 @@ from math import floor
 import subprocess
 import glob
 import string
-#import fraction
+import hsi
+#import fractions
 
  
 class SingleImage(object):
@@ -491,12 +492,12 @@ class HDRGenerator():
         
         tif_list = [RawnameToImagename(f) for f in fl]
         prefix = hdr_config.ExpandPrefix(fl[0])
-        pto_file = os.path.join(hdr_config.GetTargetDir(), prefix)
+        pto_file = os.path.join(hdr_config.GetTargetDir(), prefix+".pto")
         tmp_prefix = 'tmp_' + prefix +'_'
         try:
             align_cmd = ['align_image_stack',
                          '-a%s' % tmp_prefix,
-                         '-p%s.pto' % pto_file] + tif_list
+                         '-p%s' % pto_file] + tif_list
             result = subprocess.check_output(align_cmd)
             output_file = os.path.join(hdr_config.GetTargetDir(), prefix+hdr_config.GetImageExt())
             enfuse_cmd = ['enfuse',
@@ -515,7 +516,19 @@ class HDRGenerator():
 
 class PanoGenerator():
     def __call__(self, cimg, config):
-        print self.__name__ 
+        print self.__name__
+        self.pano = hsi.Panorama()
+        fl = cimg.getFilelist() 
+        for fn in fl:
+            uj_kep=hsi.SrcPanoImage(fajlnev)
+            #uj_kep.setExifCropFactor(crop_factor)
+            self.pano.addImage(uj_kep)
+            
+        prefix = hdr_config.ExpandPrefix(fl[0])
+        pto_file = os.path.join(hdr_config.GetTargetDir(), prefix+".pto")
+        ofs=hsi.ofstream(pto_file)
+        self.p.writeData(ofs)
+        del ofs
         
                
 class ShellScriptWriter:
