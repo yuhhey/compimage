@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 
 import pyexiv2
 import os.path
@@ -65,7 +65,7 @@ class CompositeImage(object):
         return iter(self._images.keys())
     
     def add(self, img):
-        self[img.name()] = img # Amíg csak a fájlnév egyezés esetén tekintünk 2 képet egyformának, addig jó.
+        self[img.name()] = img # Amig csak a fajlnev egyezes eseten tekintunk 2 kepet egyformanak, addig jo.
         
     def getFilelist(self, basename=False):
         if basename:
@@ -86,10 +86,6 @@ class CompositeImageCollector:
     def getCompImage(self):
         return self._images
         
-    'TODO!!!: Erre itt nincs feltétlenül szükség. A parser használhat egy listát, aminek az elejéhez\
-     adhatja a következő checkert. Ezzel az eredmény felhasználása és a darabszám meghatározása sokkal\
-     egyszerűbbé válik. Azt kell elhatározni, hogy a chain of controlt bele akarom-e építeni az objektumba.\
-     vagy meghagyom a felhasználó számára.'
     def setNextCollector(self, collector):
         self._next_collector = collector
         
@@ -358,7 +354,6 @@ class SymlinkGenerator:
         for f in cimg.getFilelist():
             ln = config.GetBasename(f)
             if not os.path.exists(ln):
-                # TODO wrapper, mert csak unixon működik. Windows-on lehetne shortcutot kreálni
                 os.symlink(f, ln)
                 
         return 0
@@ -515,21 +510,77 @@ class HDRGenerator():
 class PanoGenerator():
     def __call__(self, cimg, config):
         fl = cimg.getFilelist()
-        tif_list = [config.RawnameToImagename(f) for f in fl]
+        tif_list = [config.RawnameToImagename(f) for f in sorted(fl)]
+        prefix = config.ExpandPrefix(fl[0])
+        target_dir = config.GetTargetDir()
+        try:
+            os.chdir(target_dir)
+        except OSError:
+            return None
+        pto_file = os.path.join(target_dir, prefix+".pto")
+        """autopano-sift-c -o pto_file tif_List
+        """
+        try:
+            cpfind_cmd = ['autopano-sift-c',
+                          pto_file] + tif_list
+            result = subprocess.check_output(cpfind_cmd, stderr=subprocess.STDOUT)
+            
+            cpclean_cmd = ['cpclean',
+                           '-o', pto_file,
+                           pto_file]
+            result = subprocess.check_output(cpclean_cmd)
+            
+            optimizer_cmd = ['autooptimiser',
+                             '-a',
+                             '-m',
+                             '-l',
+                             '-s',
+                             '-o', pto_file,
+                             pto_file]
+            result = subprocess.check_output(optimizer_cmd, stderr=subprocess.STDOUT)
+            
+            mk_file = os.path.join(config.GetTargetDir(), prefix+".mk")
+            genmk_cmd = ['pto2mk',
+                         '-o', mk_file,
+                         '-p', prefix,
+                         pto_file]
+            result = subprocess.check_output(genmk_cmd, stderr=subprocess.STDOUT)
+            
+            make_cmd = ['make',
+                        '-f', mk_file,
+                        'all']
+            result = subprocess.check_output(make_cmd, stderr=subprocess.STDOUT) 
+        except subprocess.CalledProcessError as e:
+            print e.cmd, e.output
+            result = None
+        """         
         self.pano = hsi.Panorama()
-         
-        for fn in sorted(tif_list):
+
+        for i, fn in enumerate(sorted(tif_list)):
             uj_kep=hsi.SrcPanoImage(fn)
             #uj_kep.setExifCropFactor(crop_factor)
             self.pano.addImage(uj_kep)
-            
-        prefix = config.ExpandPrefix(fl[0])
-        pto_file = os.path.join(config.GetTargetDir(), prefix+".pto")
+            self.pano.linkImageVariableEMoRParams(0,i)
+            self.pano.linkImageVariableRadialDistortion(0,i)
+            self.pano.linkImageVariableRadialDistortionRed(0,i)
+            self.pano.linkImageVariableRadialDistortionBlue(0,i)
+            self.pano.linkImageVariableVigCorrMode(0,i)
+            self.pano.linkImageVariableRadialVigCorrCoeff(0,i)
+            self.pano.linkImageVariableRadialVigCorrCenterShift(0,i)
+            self.pano.linkImageVariableRadialDistortionCenterShift(0,i)
+            self.pano.linkImageVariableHFOV(0,i)
+            self.pano.linkImageVariableProjection(0,i)
+            self.pano.linkImageVariableX(0,i)
+            self.pano.linkImageVariableY(0,i)
+            self.pano.linkImageVariableZ(0,i)
+         
+        
+        
         ofs=hsi.ofstream(pto_file)
         self.pano.writeData(ofs)
         del ofs
-        
-        return 0
+        """
+        return result
         
                
 class ShellScriptWriter:
