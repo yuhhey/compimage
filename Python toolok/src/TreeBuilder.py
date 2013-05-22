@@ -249,6 +249,7 @@ class Expander(object):
         self.tree = tree
         self.itemID = itemID
         self.tree.SetPyData(itemID, self)
+        self.expanded = False
         
     def isExpanded(self):
         raise NotImplementedError
@@ -265,16 +266,28 @@ class Expander(object):
     def handleClick(self):
         raise NotImplementedError
     
-    def itemHasChildOfType(self, item, t):
-        (child, cookie) = self.tree.GetFirstChild(item)
+    def WalkChildren(self):
+        child, cookie = self.tree.GetFirstChild(self.itemID)
         while child.IsOk():
-            pydata = self.tree.GetPyData(child)
-            if isinstance(pydata, t):
-                return pydata
-            (child, cookie) = self.tree.GetNextChild(self.itemID, cookie)
-        
-        return None
+            yield child
+            child, cookie = self.tree.GetNextChild(self.itemID, cookie)
     
+    def ResetLabel(self):
+        pass
+    
+    # kellene egy iterator, ami az expander közvetlen childrenjein iterál
+    def DestroyChildren(self):
+        for child in self.WalkChildren():
+            expander = self.tree.GetPyData(child)
+            expander.DestroyChildren()
+            del seq_config_dict[expander.ConfigKey()]
+            del expander
+            
+        self.tree.DeleteChildren(self.itemID)
+        self.expanded = False
+        self.ResetLabel()
+        
+    #Nem kell
     def hasChildWithType(self, t):
         """ Checks if a child with the given type 't' exists"""
         return self.itemHasChildOfType(self.itemID, t)
@@ -289,7 +302,8 @@ class Expander(object):
             return pt
         else:
             return None
-        
+    
+    #Nem kell
     def findTypeAbove(self, t):
         """Checks if a child in higher level in the tree of type 't' exists"""
         p = self.tree.GetItemParent(self.itemID)
@@ -313,7 +327,8 @@ class DirectoryExpanderPopup(ExpanderPopup):
         menu_items = [("HDR config", self.onHDRConf),
                       ("Panorama config", self.onPanoramaConf),
                       ("Symlinks", self.onSymlinks),
-                      ("Generate recursively", self.onGen)]
+                      ("Generate recursively", self.onGen),
+                      ("(Re)parse directory", self.onReparse)]
         
         self.AddMenuItems(menu_items)
         
@@ -330,7 +345,12 @@ class DirectoryExpanderPopup(ExpanderPopup):
     def onGen(self,evt):
         self.dir_expander.generate()
 
-
+    def onReparse(self, evt):
+        self.dir_expander.DestroyChildren()
+        self.dir_expander.expand()
+        
+        
+        
 def GlobStarFilter(path):
     return [os.path.basename(d) for d in glob.glob(os.path.join(path, '*'))]
 
@@ -343,7 +363,6 @@ class DirectoryExpander(Expander):
         self.path = path
         
         tree.SetItemHasChildren(itemID)
-        self.expanded = False
         Expander.__init__(self,tree, itemID)
         
     def isExpanded(self):
@@ -422,6 +441,9 @@ class DirectoryExpander(Expander):
     def handleClick(self):
         pass
 
+    def ResetLabel(self):
+        self.tree.SetItemText(self.itemID, self.path)
+
     def executeGen(self,gen):
         return self.expand(gen=None)
 
@@ -465,7 +487,13 @@ class ImageExpander(Expander):
         Expander.__init__(self,tree, itemID)
         self.image = image
 
-
+    #Image items have no children
+    def DestroyChildren(self):
+        pass
+    
+    def ConfigKey(self):
+        pass
+    
 class ImageSequenceExpanderPopup(ExpanderPopup):
     
     #TODO: Megnézni, hogy nem elég-e az expander.executeGen függvényt átadni paraméterként.
@@ -491,8 +519,6 @@ class ImageSequenceExpander(Expander):
         self.seq = img_seq
         if len(self.seq) > 0:
             tree.SetItemHasChildren(itemID)
-            
-        self.expanded = False
      
     def isExpanded(self):
         return self.expanded
@@ -579,7 +605,8 @@ class TreeDict:
 
     def __delitem__(self, key):
         key = os.path.abspath(key)
-        del self.d[key]
+        if key in self.d.keys():
+            del self.d[key]
                 
     def __len__(self):
         return len(self.d)
