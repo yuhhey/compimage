@@ -157,15 +157,14 @@ class SeqParserCommand(Command):
 
 
 class SeqGenCommand(Command):
-    def __init__(self, seq, target_path, gen):
+    def __init__(self, seq, config, gen):
         Command.__init__(self)
         self.seq = seq
         self.gen = gen
-        self.target_path = target_path
+        self.config = config
         
     def __call__(self):
-        config = seq_config_dict[self.target_path]
-        return self.gen(self.seq, config)
+        return self.gen(self.seq, self.config)
 
 
 wxEVT_COMMAND_UPDATE = wx.NewEventType()
@@ -517,7 +516,8 @@ class ImageSequenceExpander(Expander):
         pass
     
     def _execCmd(self, gen):
-        cmd = SeqGenCommand(self.seq, self.target_path, gen)
+        config = seq_config_dict[self.ConfigKey()]
+        cmd = SeqGenCommand(self.seq, config, gen)
         task_id = self.tree.processingStarted(self.itemID)
         WorkerThread(cmd, task_id, self.tree, None)
         return task_id
@@ -538,7 +538,7 @@ class HDRExpander(ImageSequenceExpander):
         if gen == None:
             gen = CompositeImage.HDRGenerator()
             
-        task_id = self.__execCmd(gen)
+        task_id = self._execCmd(gen)
         return task_id
 
     def ConfigKey(self):
@@ -755,6 +755,7 @@ class TreeCtrlFrame(wx.Frame):
         self.PopupMenu(data.GetPopupMenu(), e.GetPoint())
 
     def onUpdate(self, e):
+        print self.config_key
         seq_config_dict[self.config_key] = self.hdrconfig_panel.hdr_config
 
     def onCommandUpdate(self, e):
