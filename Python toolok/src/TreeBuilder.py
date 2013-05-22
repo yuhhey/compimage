@@ -39,7 +39,7 @@ class HDRConfigPanel(wx.Panel):
         cimke = wx.StaticText(parent, -1, label)
         input_field = wx.TextCtrl(parent, -1, defValue, style=wx.TE_LEFT | wx.TE_PROCESS_ENTER)
         
-        input_field.Bind(wx.EVT_TEXT_ENTER, handler)
+        input_field.Bind(wx.EVT_TEXT, handler)
         
         hs = wx.BoxSizer(wx.HORIZONTAL)
         
