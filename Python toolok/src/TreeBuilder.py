@@ -382,10 +382,14 @@ class DirectoryExpander(Expander):
         self.tree.SetItemText(self.itemID, item_text)
 
 
-    def AddSeqsItems(self, seqs, seq_config, seq_expander_cls):
+    def AddSeqsItems(self, seqs, seq_expander_cls, seq_postfix):
         if len(seqs) == 0:
             return
         # Itt kihasznaljuk, hogy az osszes seq egy konyvtarbol van.
+        path_config = seq_config_dict[self.path]
+        seq_config = copy.deepcopy(path_config)
+        seq_config.SetPrefix(seq_config.GetPrefix() + seq_postfix)
+
         prefix = seq_config.ExpandPrefix(seqs[0].getFilelist()[0])
         seq_path = seq_config.GetTargetDir()
         for fn, seq in enumerate(reversed(seqs)):
@@ -410,13 +414,8 @@ class DirectoryExpander(Expander):
         #if n_hdrs == 0:
         #    return
         
-        hdr_config = seq_config_dict[self.path]
-        
-        self.AddSeqsItems(hdrs, hdr_config, HDRExpander)
-        pano_config = copy.deepcopy(hdr_config)
-        pano_config.SetPrefix("PANO")
-        pano_config.ResetIndex()
-        self.AddSeqsItems(panos, pano_config, PanoExpander)
+        self.AddSeqsItems(hdrs, HDRExpander, '_HDR')
+        self.AddSeqsItems(panos, PanoExpander, '_PANO')
 
     def expand(self, filter=GlobStarFilter):
 
@@ -573,11 +572,10 @@ class HDRExpander(ImageSequenceExpander):
 
 class PanoExpander(ImageSequenceExpander):
     def executeGen(self, gen):
-        print "PanoExpander", type(self)
         if gen == None:
             gen = CompositeImage.PanoGenerator()
             
-        task_id = self._execCmd( gen)
+        task_id = self._execCmd(gen)
         return task_id
 
     def ConfigKey(self):
