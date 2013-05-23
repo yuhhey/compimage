@@ -369,7 +369,7 @@ class DirectoryExpander(Expander):
         return self.expanded
  
     def addSubdirsToTree(self, l):
-        for fn in sorted(l):
+        for fn in sorted(l, key=str.lower):
             fullpath = os.path.join(self.path, fn)
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, fn)
