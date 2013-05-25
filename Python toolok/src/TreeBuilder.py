@@ -9,7 +9,9 @@ import threading as TH
 import time
 import glob
 import pickle
-
+import locale
+# this reads the environment and inits the right locale
+locale.setlocale(locale.LC_ALL, "")
 
 class HDRConfigPanel(wx.Panel):
     
@@ -369,7 +371,7 @@ class DirectoryExpander(Expander):
         return self.expanded
  
     def addSubdirsToTree(self, l):
-        for fn in sorted(l, key=str.lower):
+        for fn in sorted(l, cmp=locale.strcoll):
             fullpath = os.path.join(self.path, fn)
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, fn)
@@ -421,13 +423,11 @@ class DirectoryExpander(Expander):
 
         if self.isExpanded():   
             return
-        
-        self.task_id = self.tree.processingStarted(self.itemID)
-        
+                
         l = filter(self.path)
         self.addSubdirsToTree(l)
         cmd = SeqParserCommand(self.path)
-        WorkerThread(cmd, self.task_id, self.tree, self.SeqParsedCallback)        
+        self.SeqParsedCallback(cmd())        
         self.expanded = True
         return self.task_id
  
