@@ -444,7 +444,7 @@ class DirectoryExpander(Expander):
         self.tree.SetItemText(self.itemID, self.path)
 
     def executeGen(self,gen):
-        return self.expand(gen=None)
+        return self.expand()
 
     def genSymlink(self):
         self.tree.executeGen(CompositeImage.SymlinkGenerator(), self.itemID)
