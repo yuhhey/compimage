@@ -420,7 +420,6 @@ class DirectoryExpander(Expander):
         self.AddSeqsItems(panos, PanoExpander, '_PANO')
 
     def expand(self, filter=GlobStarFilter):
-
         if self.isExpanded():   
             return
                 
@@ -429,7 +428,6 @@ class DirectoryExpander(Expander):
         cmd = SeqParserCommand(self.path)
         self.SeqParsedCallback(cmd())        
         self.expanded = True
-        return self.task_id
  
     def GetPopupMenu(self):
         return DirectoryExpanderPopup(self)
@@ -682,19 +680,16 @@ class TreeCtrlWithImages(wx.TreeCtrl):
         self.iterator = treeIterator(self, itemID)
         self._cancel_wanted = False
         self.gen = gen
-        self.executeNext()
+        #self.executeNext()
 
     def executeNext(self):
-        if self._cancel_wanted:
+        if self._cancel_wanted or self.iterator == None:
             return
         try:
-            while TH.activeCount() < 4:
-                task_id = None 
-                while task_id == None:
-                    item = self.iterator.next()
-                    expander = self.GetPyData(item)
-                    task_id = expander.executeGen(self.gen)
-                    print TH.activeCount()
+            if TH.activeCount() < 4:
+                item = self.iterator.next()
+                expander = self.GetPyData(item)
+                expander.executeGen(self.gen)
         except StopIteration:
             self.iterator = None
             pass # normal termination of iteration using generator
@@ -755,6 +750,11 @@ class TreeCtrlFrame(wx.Frame):
         
         self.Bind(EVT_COMMAND_UPDATE, self.onCommandUpdate)
                     
+        self.Bind(wx.EVT_IDLE, self.OnIdle)            
+        
+    def OnIdle(self, event):
+        self.tree.executeNext()
+        
     def onItemExpand(self, e):
 
         item = e.GetItem()
