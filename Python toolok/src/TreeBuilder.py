@@ -10,7 +10,7 @@ import time
 import glob
 import pickle
 import locale
-# this reads the environment and inits the right locale
+
 locale.setlocale(locale.LC_ALL, "")
 
 class HDRConfigPanel(wx.Panel):
@@ -34,7 +34,7 @@ class HDRConfigPanel(wx.Panel):
     def setConfig(self, hdr_config, path):
         self.hdr_config = copy.deepcopy(hdr_config)
         self.path = path
-        for w, l, h, value in self.inputFieldData():
+        for w, value in [(x[0], x[3]) for x in self.inputFieldData()]:
             getattr(self, w).SetValue(value)
 
     def createInputField(self, parent, label, handler, defValue= u''):
@@ -140,8 +140,13 @@ class Command:
     def __call__(self):
         print "Command object default operation: sleep for 5 sec"
         time.sleep(5)
+    
         
-
+class NullCommand(Command):
+    def __call__(self, *args, **kwargs):
+        pass
+    
+    
 class SeqParserCommand(Command):
     def __init__(self, path):
         Command.__init__(self)
@@ -210,8 +215,6 @@ class WorkerThread(TH.Thread):
         self.task_id = task_id
         self._notify_window = notify_window
         self.callback = callback
-        # This starts the thread running on creation, but you could
-        # also make the GUI thread responsible for calling this
         self.start()
 
     def run(self):
@@ -256,7 +259,7 @@ class Expander(object):
     def isExpanded(self):
         raise NotImplementedError
                             
-    def expand(self, *arsg, **kwargs):
+    def expand(self, *args, **kwargs):
         pass
         #raise NotImplementedError
     
@@ -341,16 +344,21 @@ class DirectoryExpanderPopup(ExpanderPopup):
     def onPanoramaConf(self, evt):
         raise NotImplementedError
 
-    def onSymlinks(self, evt):
-        self.dir_expander.genSymlink()
+    def ExecCmd(self, cmd):
+        # TODO: First execute nullcommand, then the symlink generation.
+        #      A command queue to be implemented in TreeWithImages
+        
+        self.dir_expander.ExecCmd(cmd)
+    
+    def onSymlinks(self, evt):    
+        self.ExecCmd(CompositeImage.SymlinkGenerator())
         
     def onGen(self,evt):
-        self.dir_expander.generate()
+        self.dir_expander.ExecCmd(None)
 
     def onReparse(self, evt):
         self.dir_expander.DestroyChildren()
         self.dir_expander.expand()
-        
         
         
 def GlobStarFilter(path):
@@ -377,12 +385,10 @@ class DirectoryExpander(Expander):
                 child = self.tree.AppendItem(self.itemID, fn)
                 DirectoryExpander(self.tree, fullpath, child)
                       
-
     def UpdateItemText(self, text):
         item_text = self.tree.GetItemText(self.itemID)
         item_text = item_text + text
         self.tree.SetItemText(self.itemID, item_text)
-
 
     def AddSeqsItems(self, seqs, seq_expander_cls, seq_postfix):
         if len(seqs) == 0:
@@ -419,11 +425,11 @@ class DirectoryExpander(Expander):
         self.AddSeqsItems(hdrs, HDRExpander, '_HDR')
         self.AddSeqsItems(panos, PanoExpander, '_PANO')
 
-    def expand(self, filter=GlobStarFilter):
+    def expand(self, f=GlobStarFilter):
         if self.isExpanded():   
             return
                 
-        l = filter(self.path)
+        l = f(self.path)
         self.addSubdirsToTree(l)
         cmd = SeqParserCommand(self.path)
         self.SeqParsedCallback(cmd())        
@@ -443,12 +449,9 @@ class DirectoryExpander(Expander):
 
     def executeGen(self,gen):
         return self.expand()
-
-    def genSymlink(self):
-        self.tree.executeGen(CompositeImage.SymlinkGenerator(), self.itemID)
-
-    def generate(self):
-        self.tree.executeGen(None, self.itemID)
+     
+    def ExecCmd(self, cmd):
+        self.tree.executeGen(cmd, self.itemID)
         
 
 class RootItemExpanderPopup(DirectoryExpanderPopup):
@@ -491,6 +494,7 @@ class ImageExpander(Expander):
     def ConfigKey(self):
         pass
     
+
 class ImageSequenceExpanderPopup(ExpanderPopup):
     
     #TODO: Megnézni, hogy nem elég-e az expander.executeGen függvényt átadni paraméterként.
@@ -520,8 +524,7 @@ class ImageSequenceExpander(Expander):
     def isExpanded(self):
         return self.expanded
     
-    def expand(self, filter=None):
-        # TODO: Minden egyes alkalommal újra kell számolni
+    def expand(self, f=None):
         if self.isExpanded():
             return
         for img in sorted(self.seq):
@@ -537,14 +540,6 @@ class ImageSequenceExpander(Expander):
 
     def ExecuteGenCallback(self, result):
         pass
-    
-    def _execCmd(self, gen):
-        config = seq_config_dict[self.ConfigKey()]
-        cmd = SeqGenCommand(self.seq, config, gen)
-        task_id = self.tree.processingStarted(self.itemID)
-        WorkerThread(cmd, task_id, self.tree, None)
-        return task_id
-
     def _ConfigKey(self, s):
         if self.target_path[0] == '/': # os.path.join discards anything if an absolute path appears in the parameter list
             target_path_start = 1
@@ -555,13 +550,19 @@ class ImageSequenceExpander(Expander):
     def ConfigKey(self):
         raise NotImplementedError
     
+    def _ExecCmd(self, gen):
+        config = seq_config_dict[self.ConfigKey()]
+        cmd = SeqGenCommand(self.seq, config, gen)
+        task_id = self.tree.processingStarted(self.itemID)
+        WorkerThread(cmd, task_id, self.tree, None)
+        return task_id
     
 class HDRExpander(ImageSequenceExpander):
     def executeGen(self, gen):
         if gen == None:
             gen = CompositeImage.HDRGenerator()
             
-        task_id = self._execCmd(gen)
+        task_id = self._ExecCmd(gen)
         return task_id
 
     def ConfigKey(self):
@@ -573,7 +574,7 @@ class PanoExpander(ImageSequenceExpander):
         if gen == None:
             gen = CompositeImage.PanoGenerator()
             
-        task_id = self._execCmd(gen)
+        task_id = self._ExecCmd(gen)
         return task_id
 
     def ConfigKey(self):
@@ -675,23 +676,36 @@ class TreeCtrlWithImages(wx.TreeCtrl):
 
     def executeGen(self, gen, itemID):
         if self.iterator:
-            msg = wx.MessageBox(message='One command is already being executed')
+            wx.MessageBox(message='One command is already being executed. Command added to queue')
+            self.gen_list.append((gen, 4))
             return
         self.iterator = treeIterator(self, itemID)
+        self.itemID = itemID
         self._cancel_wanted = False
-        self.gen = gen
-        #self.executeNext()
-
+        
+        self.gen = NullCommand()
+        self.max_thread = 2
+        self.gen_list = [(gen, 4)]
+        
+        
     def executeNext(self):
         if self._cancel_wanted or self.iterator == None:
             return
         try:
-            if TH.activeCount() < 4:
+            if TH.activeCount() < self.max_thread:
                 item = self.iterator.next()
                 expander = self.GetPyData(item)
                 expander.executeGen(self.gen)
         except StopIteration:
-            self.iterator = None
+            
+            if len(self.gen_list) > 0:
+                self.gen = self.gen_list[0][0]
+                self.max_thread = self.gen_list[0][1]
+                del self.gen_list[0]
+                self.iterator = treeIterator(self, self.itemID)
+            else:
+                self.iterator = None
+                
             pass # normal termination of iteration using generator
         
     def StopCommand(self):
@@ -707,7 +721,7 @@ class TreeCtrlFrame(wx.Frame):
         self.tree = TreeCtrlWithImages(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
         
         self.config_key = rootdir
-        expander = RootItemExpander(self.tree, rootdir)
+        RootItemExpander(self.tree, rootdir)
         
         self.updatebutton = wx.Button(self, id=wx.ID_REFRESH)
         self.updatebutton.Bind(wx.EVT_BUTTON, self.onUpdate)

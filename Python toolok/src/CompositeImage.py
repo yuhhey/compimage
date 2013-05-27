@@ -214,11 +214,9 @@ class ExifValueChecker(Checker):
         
     def __call__(self, comp_img, s_img):
         value = s_img[self.exif_key]
-        print "ExifValueChecker: %s=%s" % (self.exif_key, str(value)), type(value), value
         if self.value == None:
             self.value = value
         result = (value == self.value)
-        print result
         return result
 
 def ISOChecker(value=None):
