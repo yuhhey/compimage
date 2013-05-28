@@ -766,21 +766,7 @@ class TreeCtrlFrame(wx.Frame):
         
         self.Bind(EVT_COMMAND_UPDATE, self.onCommandUpdate)
                     
-        self.Bind(wx.EVT_IDLE, self.OnIdle)            
-        
-    
-    def kill_child_processes(self, parent_pid, sig=signal.SIGTERM):
-        ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)
-        ps_output = ps_command.stdout.read()
-        ps_pid = ps_command.pid
-        retcode = ps_command.wait()
-        assert retcode == 0, "ps command returned %d" % retcode
-        for pid_str in ps_output.split("\n")[:-1]:
-            try:
-                os.kill(int(pid_str), sig)
-            except OSError as e:
-                print "Kill error", pid_str, ps_pid
-                
+        self.Bind(wx.EVT_IDLE, self.OnIdle)                            
         
     def OnIdle(self, event):
         self.tree.executeNext()
@@ -834,7 +820,7 @@ class TreeCtrlFrame(wx.Frame):
         self.tree.StopCommand()
         self.stopbutton.Disable()
         pid = os.getpid()
-        self.kill_child_processes(pid)
+        kill_child_processes(pid)
         
 
     def ShowCustomDialog(self, fd_style):
@@ -882,10 +868,22 @@ class TestExpandersApp(wx.App):
         return True
     
     def OnExit(self):
-        self.frame.kill_child_processes(os.getpid())
+        kill_child_processes(os.getpid())
 
 
 seq_config_dict = TreeDict()
+
+def kill_child_processes(parent_pid, sig=signal.SIGTERM):
+        ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)
+        ps_output = ps_command.stdout.read()
+        ps_pid = ps_command.pid
+        retcode = ps_command.wait()
+        assert retcode == 0, "ps command returned %d" % retcode
+        for pid_str in ps_output.split("\n")[:-1]:
+            try:
+                os.kill(int(pid_str), sig)
+            except OSError as e:
+                print "Kill error", pid_str, ps_pid
 
 
 if __name__ == "__main__":
