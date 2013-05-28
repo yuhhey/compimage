@@ -10,6 +10,8 @@ import time
 import glob
 import pickle
 import locale
+import signal
+import subprocess
 
 locale.setlocale(locale.LC_ALL, "")
 
@@ -766,6 +768,20 @@ class TreeCtrlFrame(wx.Frame):
                     
         self.Bind(wx.EVT_IDLE, self.OnIdle)            
         
+    
+    def kill_child_processes(self, parent_pid, sig=signal.SIGTERM):
+        ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)
+        ps_output = ps_command.stdout.read()
+        ps_pid = ps_command.pid
+        retcode = ps_command.wait()
+        assert retcode == 0, "ps command returned %d" % retcode
+        for pid_str in ps_output.split("\n")[:-1]:
+            try:
+                os.kill(int(pid_str), sig)
+            except OSError as e:
+                print "Kill error", pid_str, ps_pid
+                
+        
     def OnIdle(self, event):
         self.tree.executeNext()
         
@@ -817,6 +833,8 @@ class TreeCtrlFrame(wx.Frame):
     def onStopCommand(self, e):
         self.tree.StopCommand()
         self.stopbutton.Disable()
+        pid = os.getpid()
+        self.kill_child_processes(pid)
         
 
     def ShowCustomDialog(self, fd_style):
@@ -856,12 +874,15 @@ class TestExpandersApp(wx.App):
     def OnInit(self):
 
 
-        frame = TreeCtrlFrame(None, -1, 'Test expanders', '/')
+        self.frame = TreeCtrlFrame(None, -1, 'Test expanders', '/')
 
 
-        frame.Show(True)
-        self.SetTopWindow(frame)
+        self.frame.Show(True)
+        self.SetTopWindow(self.frame)
         return True
+    
+    def OnExit(self):
+        self.frame.kill_child_processes(os.getpid())
 
 
 seq_config_dict = TreeDict()
