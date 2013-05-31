@@ -287,7 +287,9 @@ class Expander(object):
         for child in self.WalkChildren():
             expander = self.tree.GetPyData(child)
             expander.DestroyChildren()
-            del seq_config_dict[expander.ConfigKey()]
+            key = expander.ConfigKey()
+            if key:
+                del seq_config_dict[key]
             del expander
             
         self.tree.DeleteChildren(self.itemID)
