@@ -85,7 +85,6 @@ class HDRConfigPanel(wx.Panel):
     def onMaxdiff(self, evt):
         value = int(self.maxdiff.GetValue())
         self.hdr_config.GetCheckers()[0].maxdiff = value
-        print 'onMaxdiff'
 
 
 class HDRConfigDialog(wx.Dialog):
@@ -798,7 +797,6 @@ class TreeCtrlFrame(wx.Frame):
         self.PopupMenu(data.GetPopupMenu(), e.GetPoint())
 
     def onUpdate(self, e):
-        print self.config_key
         seq_config_dict[self.config_key] = self.hdrconfig_panel.hdr_config
 
     def onCommandUpdate(self, e):
