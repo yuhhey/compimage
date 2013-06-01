@@ -449,7 +449,7 @@ class DirectoryExpander(Expander):
         pass
 
     def ResetLabel(self):
-        self.tree.SetItemText(self.itemID, self.path)
+        self.tree.SetItemText(self.itemID, os.path.basename(self.path))
 
     def executeGen(self,gen):
         return self.expand()
