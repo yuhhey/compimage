@@ -104,6 +104,7 @@ class CompositeImageCollector:
             # We need to call all the checkers to handle stateful ones
             # such as AEBchecker. Otherwise we get false hits with 2 images.
             # CollectHDRStrategyTest.test_64076506falsePositive tests this case
+            self.resetCheckers()
             for chk in self._checkers:
                 chk(self._images, img)
             self._images.add(img)
@@ -188,21 +189,6 @@ class AEBChecker(Checker):
         return True
     
 
-class SameCameraChecker(Checker):
-    def __init__(self):
-        self.reset()
-        
-    def reset(self):
-        self.sn = 0
-        
-    def __call__(self, comp_img, s_img):
-        sn = s_img["Exif.Canon.SerialNumber"]
-        if 0 == self.sn:
-            self.sn = sn
-            
-        return self.sn == sn
-
-
 class ExifValueChecker(Checker):
     def __init__(self, exif_key, value=None):
         self.exif_key = exif_key
@@ -218,6 +204,9 @@ class ExifValueChecker(Checker):
             self.value = value
         result = (value == self.value)
         return result
+
+def SameCameraChecker(value=None):
+    return ExifValueChecker("Exif.Canon.SerialNumber", value)
 
 def ISOChecker(value=None):
     return ExifValueChecker('Exif.Photo.ISOSpeedRatings', value)
@@ -434,7 +423,12 @@ class Config():
         return img_name
         
 class HDRConfig(Config):
-    def __init__(self, targetdir, checkers=[TimeStampChecker(7), AEBChecker(), SameCameraChecker()], raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}'):
+    def __init__(self,
+                 targetdir,
+                 checkers=[TimeStampChecker(7), AEBChecker(), SameCameraChecker()],
+                 raw_ext='.CR2',
+                 hdr_ext='.TIF',
+                 prefix='${dir}'):
         Config.__init__(self, targetdir, checkers, raw_ext, hdr_ext, prefix)
 
     def __str__(self):
