@@ -238,7 +238,10 @@ class CollectSeqStrategy:
     def parseIMGList(self, imgs, seq_config):
         if len(imgs) == 0:
             return [], []
-        imgs.sort(key=lambda si:(timestampFromMetadata(si))[0])
+        try:
+            imgs.sort(key=lambda si:(timestampFromMetadata(si))[0])
+        except IOError as e:
+            print e
         cic = CompositeImageCollector(seq_config.GetCheckers())
         sic = SingleImageCollector()
         cic.setNextCollector(sic)

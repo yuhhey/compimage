@@ -484,6 +484,8 @@ class RootItemExpander(DirectoryExpander):
     def GetPopupMenu(self):
         return RootItemExpanderPopup(self)
 
+    def ResetLabel(self):
+        pass
 
 class ImageExpander(Expander):
     def __init__(self, tree, itemID, image):
@@ -708,8 +710,6 @@ class TreeCtrlWithImages(wx.TreeCtrl):
                 self.iterator = treeIterator(self, self.itemID)
             else:
                 self.iterator = None
-                
-            pass # normal termination of iteration using generator
         
     def StopCommand(self):
         self._cancel_wanted=True
@@ -815,6 +815,8 @@ class TreeCtrlFrame(wx.Frame):
         if self.tree.iterator:
             self.stopbutton.Enable()
             self.tree.executeNext()
+        else:
+            self.stopbutton.Disable()
 
     def onStopCommand(self, e):
         self.tree.StopCommand()
