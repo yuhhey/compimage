@@ -1,6 +1,7 @@
 #-*- coding: utf-8 -*-9
 
 import wx
+import wx.gizmos
 import os
 import errno
 import CompositeImage
@@ -128,7 +129,7 @@ class HDRConfigDialog(wx.Dialog):
         self.Destroy()
 
 
-class Command:
+class Command(object):
     def __init__(self):
         self._want_abort = 0
         
@@ -150,7 +151,7 @@ class NullCommand(Command):
     
 class SeqParserCommand(Command):
     def __init__(self, path):
-        Command.__init__(self)
+        super(SeqParserCommand, self).__init__()
         self.path = path
         
     def __call__(self):
@@ -166,7 +167,7 @@ class SeqParserCommand(Command):
 
 class SeqGenCommand(Command):
     def __init__(self, seq, config, gen):
-        Command.__init__(self)
+        super(SeqGenCommand, self).__init__()
         self.seq = seq
         self.gen = gen
         self.config = config
@@ -211,7 +212,7 @@ class WorkerThread(TH.Thread):
     """Worker Thread Class."""
     def __init__(self, cmd, task_id, notify_window, callback):
         """Init Worker Thread Class."""
-        TH.Thread.__init__(self)
+        super(WorkerThread, self).__init__()
         self._cmd = cmd
         self.task_id = task_id
         self._notify_window = notify_window
@@ -235,7 +236,7 @@ class WorkerThread(TH.Thread):
 
 class ExpanderPopup(wx.Menu):
     def __init__(self):
-        wx.Menu.__init__(self)
+        super(ExpanderPopup, self).__init__()
 
     def AddItem(self, label, callback):
         item = wx.MenuItem(self, wx.NewId(), label)
@@ -329,7 +330,7 @@ class Expander(object):
         
 class DirectoryExpanderPopup(ExpanderPopup):
     def __init__(self, d_expander):
-        ExpanderPopup.__init__(self)
+        super(DirectoryExpanderPopup, self).__init__()
         self.dir_expander = d_expander
         
         menu_items = [("HDR config", self.onHDRConf),
@@ -376,7 +377,7 @@ class DirectoryExpander(Expander):
         self.path = path
         
         tree.SetItemHasChildren(itemID)
-        Expander.__init__(self,tree, itemID)
+        super(DirectoryExpander, self).__init__(tree, itemID)
         
     def isExpanded(self):
         return self.expanded
@@ -459,7 +460,7 @@ class DirectoryExpander(Expander):
 
 class RootItemExpanderPopup(DirectoryExpanderPopup):
     def __init__(self, d_expander):
-        DirectoryExpanderPopup.__init__(self, d_expander)
+        super(RootItemExpanderPopup, self).__init__(d_expander)
         
         root_menu_items = [("Change root", self.onChangeRoot)]
         
@@ -479,7 +480,7 @@ class RootItemExpanderPopup(DirectoryExpanderPopup):
 class RootItemExpander(DirectoryExpander):
     def __init__(self, tree	, path):
         itemID = tree.AddRoot(path)
-        DirectoryExpander.__init__(self, tree, path, itemID)
+        super(RootItemExpander, self).__init__(tree, path, itemID)
         
     def GetPopupMenu(self):
         return RootItemExpanderPopup(self)
@@ -489,7 +490,7 @@ class RootItemExpander(DirectoryExpander):
 
 class ImageExpander(Expander):
     def __init__(self, tree, itemID, image):
-        Expander.__init__(self,tree, itemID)
+        super(ImageExpander, self).__init__(tree, itemID)
         self.image = image
 
     #Image items have no children
@@ -504,7 +505,7 @@ class ImageSequenceExpanderPopup(ExpanderPopup):
     
     #TODO: Megnézni, hogy nem elég-e az expander.executeGen függvényt átadni paraméterként.
     def __init__(self, expander):
-        wx.Menu.__init__(self)
+        super(ImageSequenceExpanderPopup, self).__init__()
         self.expander = expander
         menu_items = [("Generate", self.onGenerate),
                       ("Symlinks", self.onCreateSymlink)]
@@ -519,7 +520,7 @@ class ImageSequenceExpanderPopup(ExpanderPopup):
 
 class ImageSequenceExpander(Expander):
     def __init__(self, tree, source_path, target_path, itemID, img_seq):
-        Expander.__init__(self, tree, itemID)
+        super(ImageSequenceExpander, self).__init__(tree, itemID)
         self.target_path = target_path
         self.source_path = source_path
         self.seq = img_seq
@@ -586,7 +587,7 @@ class PanoExpander(ImageSequenceExpander):
         return self._ConfigKey('PANO')
     
     
-class TreeDict:
+class TreeDict(object):
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
     def __init__(self):
         self.d = {}
@@ -621,10 +622,14 @@ class TreeDict:
         return self.d.keys()
      
 
-class TreeCtrlWithImages(wx.TreeCtrl):
+class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
     def __init__(self, *args, **kwrds):
         
-        wx.TreeCtrl.__init__(self, *args, **kwrds)
+        super(TreeCtrlWithImages, self).__init__(*args, **kwrds)
+        
+        self.AddColumn("Tree", width=200)
+        self.AddColumn("Type", width=50)
+        
         # bitmaps for progress indication.
         self.il = wx.ImageList(16,16)
         self.AssignImageList(self.il)
@@ -719,7 +724,7 @@ class TreeCtrlWithImages(wx.TreeCtrl):
 class TreeCtrlFrame(wx.Frame):
     
     def __init__(self, parent, id, title, rootdir):
-        wx.Frame.__init__(self, parent, id, title, wx.DefaultPosition, wx.Size(450, 350))
+        super(TreeCtrlFrame, self).__init__(parent, id, title, wx.DefaultPosition, wx.Size(450, 350))
         panel = wx.Panel(self, -1)
         self.tree = TreeCtrlWithImages(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
         
