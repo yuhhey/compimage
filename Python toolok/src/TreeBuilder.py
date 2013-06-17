@@ -631,7 +631,8 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
                ("Raw ext", 60, True),
                ("Img ext", 60, True),
                ("Output prefix", 50, True),
-               ("Maxdiff", 70, True)]
+               ("Maxdiff", 70, True),
+               ("Checkers", 150, True)]
     def __init__(self, *args, **kwrds):
         
         super(TreeCtrlWithImages, self).__init__(*args, **kwrds)
