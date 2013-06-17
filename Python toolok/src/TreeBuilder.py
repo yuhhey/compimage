@@ -522,12 +522,12 @@ class ImageSequenceExpanderPopup(ExpanderPopup):
 
 class ImageSequenceExpander(Expander):
     def __init__(self, tree, source_path, target_path, itemID, img_seq):
-        super(ImageSequenceExpander, self).__init__(tree, itemID)
         self.target_path = target_path
         self.source_path = source_path
         self.seq = img_seq
         if len(self.seq) > 0:
             tree.SetItemHasChildren(itemID)
+        super(ImageSequenceExpander, self).__init__(tree, itemID)
      
     def isExpanded(self):
         return self.expanded
@@ -564,6 +564,9 @@ class ImageSequenceExpander(Expander):
         task_id = self.tree.processingStarted(self.itemID)
         WorkerThread(cmd, task_id, self.tree, None)
         return task_id
+
+    def getPath(self):
+        return self.target_path
     
 class HDRExpander(ImageSequenceExpander):
     def executeGen(self, gen):
