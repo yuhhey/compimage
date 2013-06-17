@@ -257,6 +257,7 @@ class Expander(object):
         self.itemID = itemID
         self.tree.SetPyData(itemID, self)
         self.expanded = False
+        self.tree.UpdateConfig(self.itemID, seq_config_dict[self.getPath()])
         
     def isExpanded(self):
         raise NotImplementedError
@@ -387,7 +388,8 @@ class DirectoryExpander(Expander):
             fullpath = os.path.join(self.path, fn)
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, fn)
-                DirectoryExpander(self.tree, fullpath, child)
+                expander = DirectoryExpander(self.tree, fullpath, child)
+                config = seq_config_dict[expander.getPath()]
                       
     def UpdateItemText(self, text):
         item_text = self.tree.GetItemText(self.itemID)
@@ -623,20 +625,21 @@ class TreeDict(object):
      
 
 class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
+    columns = [("Tree", 200, False),
+               ("Type", 50, False),
+               ("Target dir", 200, True),
+               ("Raw ext", 60, True),
+               ("Img ext", 60, True),
+               ("Output prefix", 50, True),
+               ("Maxdiff", 70, True)]
     def __init__(self, *args, **kwrds):
         
         super(TreeCtrlWithImages, self).__init__(*args, **kwrds)
         
-        self.AddColumn("Tree", width=200)
-        self.AddColumn("Type", width=50)
-        self.AddColumn("Target dir", width=200)
-        self.AddColumn("Raw ext", width=60)
-        self.AddColumn("Img ext", width=60)
-        self.AddColumn("Output prefix", width=50)
-        self.AddColumn("Maxdiff", width=70)
         
-        self.SetColumnEditable(0, False)
-        self.SetColumnEditable(1, False)
+        for i, (label, w, editable) in enumerate(self.columns):
+            self.AddColumn(label, width=w)
+            self.SetColumnEditable(i, editable)
         
         self.Bind(wx.EVT_TREE_END_LABEL_EDIT, self.OnEndLabelEdit)
         
@@ -662,6 +665,7 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
     def OnEndLabelEdit(self, evt):
         print "OnEndLabelEdit"
         item=evt.GetItem()
+        print item
         # item=self.tree.GetCurrentItem()   # same result as evt.GetItem() 
         print "evt.GetLabel()=", evt.GetLabel()
 
@@ -736,6 +740,11 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         self._cancel_wanted=True
         self.iterator = None
 
+    def UpdateConfig(self, item, config):
+        self.SetItemText(item, config.GetTargetDir(), 2)
+        self.SetItemText(item, config.GetRawExt(), 3)
+        self.SetItemText(item, config.GetImageExt(), 4)
+        self.SetItemText(item, config.GetPrefix(), 5)
 
 class TreeCtrlFrame(wx.Frame):
     
@@ -745,6 +754,8 @@ class TreeCtrlFrame(wx.Frame):
         self.tree = TreeCtrlWithImages(panel, 1, wx.DefaultPosition, (-1,-1), wx.TR_HAS_BUTTONS)
         
         self.config_key = rootdir
+        
+        seq_config_dict[rootdir] = CompositeImage.HDRConfig('/tmp')
         RootItemExpander(self.tree, rootdir)
         
         self.updatebutton = wx.Button(self, id=wx.ID_REFRESH)
@@ -767,7 +778,6 @@ class TreeCtrlFrame(wx.Frame):
         
         panel.SetSizer(sizer)
         
-        seq_config_dict[rootdir] = CompositeImage.HDRConfig('/tmp')
         self.hdrconfig_panel = HDRConfigPanel(hdr_config=seq_config_dict[rootdir],
                                               path=rootdir,
                                               parent=self)
