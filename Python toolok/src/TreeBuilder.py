@@ -257,7 +257,11 @@ class Expander(object):
         self.itemID = itemID
         self.tree.SetPyData(itemID, self)
         self.expanded = False
-        self.tree.UpdateConfig(self.itemID, seq_config_dict[self.getPath()])
+        path = self.getPath()
+        if path:
+            self.tree.UpdateConfig(self.itemID, seq_config_dict[path])
+        else: # Expanders without config return None
+            pass
         
     def isExpanded(self):
         raise NotImplementedError
@@ -502,6 +506,8 @@ class ImageExpander(Expander):
     def ConfigKey(self):
         pass
     
+    def getPath(self):
+        return None
 
 class ImageSequenceExpanderPopup(ExpanderPopup):
     
@@ -646,7 +652,7 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
             self.SetColumnEditable(i, editable)
         
         self.Bind(wx.EVT_TREE_END_LABEL_EDIT, self.OnEndLabelEdit)
-        
+        self.Bind(wx.EVT_TREE_BEGIN_LABEL_EDIT, self.OnBeginLabelEdit)
         # bitmaps for progress indication.
         self.il = wx.ImageList(16,16)
         self.AssignImageList(self.il)
@@ -666,10 +672,21 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         self.iterator = None
         self._cancel_wanted = False
 
+    def OnBeginLabelEdit(self, evt):
+        item=evt.GetItem()
+        print item
+        expander = self.GetPyData(item)
+        if expander.getPath(): #Check if there is config for this item
+            pass
+        else:
+            evt.Veto()
+            return
+
     def OnEndLabelEdit(self, evt):
         print "OnEndLabelEdit"
         item=evt.GetItem()
         print item
+        expander = self.GetPyData(item)
         # item=self.tree.GetCurrentItem()   # same result as evt.GetItem() 
         print "evt.GetLabel()=", evt.GetLabel()
 
