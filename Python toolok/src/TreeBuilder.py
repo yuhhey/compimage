@@ -629,6 +629,16 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         
         self.AddColumn("Tree", width=200)
         self.AddColumn("Type", width=50)
+        self.AddColumn("Target dir", width=200)
+        self.AddColumn("Raw ext", width=60)
+        self.AddColumn("Img ext", width=60)
+        self.AddColumn("Output prefix", width=50)
+        self.AddColumn("Maxdiff", width=70)
+        
+        self.SetColumnEditable(0, False)
+        self.SetColumnEditable(1, False)
+        
+        self.Bind(wx.EVT_TREE_END_LABEL_EDIT, self.OnEndLabelEdit)
         
         # bitmaps for progress indication.
         self.il = wx.ImageList(16,16)
@@ -648,6 +658,12 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         self.Bind(wx.EVT_TIMER, self.updateProgress, self.timer)
         self.iterator = None
         self._cancel_wanted = False
+
+    def OnEndLabelEdit(self, evt):
+        print "OnEndLabelEdit"
+        item=evt.GetItem()
+        # item=self.tree.GetCurrentItem()   # same result as evt.GetItem() 
+        print "evt.GetLabel()=", evt.GetLabel()
 
     def processingStarted(self, item):
         if item in self.processedItems:
