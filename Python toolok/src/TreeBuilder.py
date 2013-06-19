@@ -557,7 +557,7 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
 
     def OnBeginLabelEdit(self, evt):
         item=evt.GetItem()
-        print item
+        print item, evt.GetInt()
         expander = self.GetPyData(item)
         if expander.ConfigKey(): #Check if there is config for this item
             pass
@@ -572,6 +572,13 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         expander = self.GetPyData(item)
         # item=self.tree.GetCurrentItem()   # same result as evt.GetItem() 
         print "evt.GetLabel()=", evt.GetLabel()
+        print evt.GetInt()
+        config = seq_config_dict[expander.ConfigKey()]
+        config.SetTargetDir(self.GetItemText(item, 2))
+        config.SetRawExt(self.GetItemText(item, 3))
+        config.SetImageExt(self.GetItemText(item, 4))
+        config.SetPrefix(self.GetItemText(item, 5))
+        seq_config_dict[expander.ConfigKey()] = config
 
     def processingStarted(self, item):
         if item in self.processedItems:
