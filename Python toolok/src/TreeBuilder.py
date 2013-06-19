@@ -16,118 +16,6 @@ import subprocess
 
 locale.setlocale(locale.LC_ALL, "")
 
-class HDRConfigPanel(wx.Panel):
-    
-    def __init__(self, *args, **kw):
-        self.hdr_config = copy.deepcopy(kw['hdr_config'])
-        del kw['hdr_config']
-        self.path = kw['path']
-        del kw['path']
-        
-        super(HDRConfigPanel, self).__init__(*args, **kw)
-        self.InitUI()
-
-    def inputFieldData(self):
-        return (("targetDir", "Target directory:", self.onTargetDir, self.hdr_config.GetTargetDir()),
-                ("rawExt", "Raw extension:", self.onRawExtension, self.hdr_config.GetRawExt()),
-                ("imageExt", "Output image ext:", self.onImageExt, self.hdr_config.GetImageExt()),
-                ("prefix", "Output prefix:", self.onPrefix, self.hdr_config.GetPrefix()),
-                ("maxdiff", "Maxdiff:", self.onMaxdiff, str(self.hdr_config.GetCheckers()[0].maxdiff)))
-
-    def setConfig(self, hdr_config, path):
-        self.hdr_config = copy.deepcopy(hdr_config)
-        self.path = path
-        for w, value in [(x[0], x[3]) for x in self.inputFieldData()]:
-            getattr(self, w).SetValue(value)
-
-    def createInputField(self, parent, label, handler, defValue= u''):
-        cimke = wx.StaticText(parent, -1, label)
-        input_field = wx.TextCtrl(parent, -1, defValue, style=wx.TE_LEFT | wx.TE_PROCESS_ENTER)
-        
-        input_field.Bind(wx.EVT_TEXT, handler)
-        
-        hs = wx.BoxSizer(wx.HORIZONTAL)
-        
-        hs.Add(cimke, 1, wx.ALIGN_LEFT)
-        hs.Add(input_field, 2, wx.ALIGN_CENTER)
-        return (input_field, hs)
-
-    def InitUI(self):
-        
-        sb = wx.StaticBox(self, label='HDR config')
-        sbs = wx.StaticBoxSizer(sb, orient=wx.VERTICAL)
-        
-        for widget, cimke, handler, default_value in self.inputFieldData():
-            input_field, hs = self.createInputField(self, cimke, handler, defValue = default_value)
-            sbs.Add(hs, 0, wx.EXPAND)
-            setattr(self, widget, input_field)
-            
-        self.SetSizer(sbs)
-                
-    def updateHDRConfig(self):
-        pass
-
-    def onTargetDir(self, evt):
-        value = self.targetDir.GetValue()
-        self.hdr_config.SetTargetDir(value)
-                
-    def onRawExtension(self, evt):
-        value = self.rawExt.GetValue()
-        self.hdr_config.SetRawExt(value)
-    
-    def onImageExt(self,evt):
-        value = self.imageExt.GetValue()
-        self.hdr_config.SetImageExt(value)
-    
-    def onPrefix(self,evt):
-        value = self.prefix.GetValue()
-        self.hdr_config.SetPrefix(value)
-        
-    def onMaxdiff(self, evt):
-        value = int(self.maxdiff.GetValue())
-        self.hdr_config.GetCheckers()[0].maxdiff = value
-
-
-class HDRConfigDialog(wx.Dialog):
-    def __init__(self, *args, **kw):
-        self.hdr_config = kw['hdr_config']
-        del kw['hdr_config']
-        super(HDRConfigDialog, self).__init__(*args, **kw)
-        
-        hdr_config_work = copy.deepcopy(self.hdr_config)
-        self.panel = HDRConfigPanel(parent = self, hdr_config = hdr_config_work)
-        self.InitUI(self.panel)
-
-    def InitUI(self, panel):
-        
-        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
-        okButton = wx.Button(self, label='Ok')
-        cancelButton = wx.Button(self, label='Cancel')
-        hbox2.Add(okButton)
-        hbox2.Add(cancelButton, flag=wx.LEFT, border=5)
-
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        vbox.Add(panel, proportion=1, 
-                 flag=wx.ALL|wx.EXPAND, border=5)
-        vbox.Add(hbox2, 
-                 flag=wx.ALIGN_CENTER|wx.TOP|wx.BOTTOM, border=10)
-
-        self.SetSizer(vbox)
-        
-        okButton.Bind(wx.EVT_BUTTON, self.onOk)
-        cancelButton.Bind(wx.EVT_BUTTON, self.onCancel)
-            
-    def onOk(self,evt):
-        self.hdr_config.SetTargetDir(self.panel.targetDir.GetValue())
-        self.hdr_config.SetRawExt(self.panel.rawExt.GetValue())
-        self.hdr_config.SetImageExt(self.panel.imageExt.GetValue())
-        self.hdr_config.SetPrefix(self.panel.prefix.GetValue())
-        
-        self.onCancel(evt)
-                
-    def onCancel(self, evt):
-        self.Destroy()
-
 
 class Command(object):
     def __init__(self):
@@ -380,6 +268,7 @@ class DirectoryExpander(Expander):
         
         tree.SetItemHasChildren(itemID)
         super(DirectoryExpander, self).__init__(tree, itemID)
+        self.tree.SetType(itemID, 'Dir')
         
     def isExpanded(self):
         return self.expanded
@@ -760,6 +649,9 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         self.SetItemText(item, config.GetRawExt(), 3)
         self.SetItemText(item, config.GetImageExt(), 4)
         self.SetItemText(item, config.GetPrefix(), 5)
+        
+    def SetType(self, item, t):
+        self.SetItemText(item, t, 1)
 
 
 class TreeCtrlFrame(wx.Frame):
@@ -794,13 +686,9 @@ class TreeCtrlFrame(wx.Frame):
         
         panel.SetSizer(sizer)
         
-        self.hdrconfig_panel = HDRConfigPanel(hdr_config=seq_config_dict[rootdir],
-                                              path=rootdir,
-                                              parent=self)
         
         hsizer = wx.BoxSizer(wx.HORIZONTAL)
         hsizer.Add(panel, 1, wx.EXPAND)
-        hsizer.Add(self.hdrconfig_panel, 1, wx.EXPAND)
         vsizer = wx.BoxSizer(wx.VERTICAL)
         vsizer.Add(hsizer, 1, wx.EXPAND)
         vsizer.Add(button_sizer, 0, wx.EXPAND)
@@ -825,18 +713,12 @@ class TreeCtrlFrame(wx.Frame):
         data = self.tree.GetPyData(item)
         if not data.isExpanded():
             data.expand()
-        
-
-    def _updateHDRConfigPanel(self):
-        hdr_config = seq_config_dict[self.config_key]
-        self.hdrconfig_panel.setConfig(hdr_config, self.config_key)
 
     def onClickItem(self, e):
         item = e.GetItem()
         data = self.tree.GetPyData(item)
         data.handleClick()
         self.config_key = data.ConfigKey()
-        self._updateHDRConfigPanel()
                 
     def onRightClick(self, e):
         item = e.GetItem()
