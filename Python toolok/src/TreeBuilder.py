@@ -257,9 +257,9 @@ class Expander(object):
         self.itemID = itemID
         self.tree.SetPyData(itemID, self)
         self.expanded = False
-        path = self.getPath()
-        if path:
-            self.tree.UpdateConfig(self.itemID, seq_config_dict[path])
+        config_key = self.ConfigKey()
+        if config_key:
+            self.tree.UpdateConfig(self.itemID, seq_config_dict[config_key])
         else: # Expanders without config return None
             pass
         
@@ -325,12 +325,9 @@ class Expander(object):
         
     def executeGen(self, dummyarg):
         pass
-
-    def getPath(self):
-        return self.path
     
     def ConfigKey(self):
-        raise NotImplementedError
+        return self.path
 
         
 class DirectoryExpanderPopup(ExpanderPopup):
@@ -393,7 +390,7 @@ class DirectoryExpander(Expander):
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, fn)
                 expander = DirectoryExpander(self.tree, fullpath, child)
-                config = seq_config_dict[expander.getPath()]
+                config = seq_config_dict[expander.ConfigKey()]
                       
     def UpdateItemText(self, text):
         item_text = self.tree.GetItemText(self.itemID)
@@ -494,6 +491,7 @@ class RootItemExpander(DirectoryExpander):
     def ResetLabel(self):
         pass
 
+
 class ImageExpander(Expander):
     def __init__(self, tree, itemID, image):
         super(ImageExpander, self).__init__(tree, itemID)
@@ -504,10 +502,8 @@ class ImageExpander(Expander):
         pass
     
     def ConfigKey(self):
-        pass
-    
-    def getPath(self):
         return None
+
 
 class ImageSequenceExpanderPopup(ExpanderPopup):
     
@@ -562,7 +558,7 @@ class ImageSequenceExpander(Expander):
         return os.path.join(self.source_path, s, self.target_path[target_path_start:])
     
     def ConfigKey(self):
-        raise NotImplementedError
+        return self.target_path
     
     def _ExecCmd(self, gen):
         config = seq_config_dict[self.ConfigKey()]
@@ -571,8 +567,6 @@ class ImageSequenceExpander(Expander):
         WorkerThread(cmd, task_id, self.tree, None)
         return task_id
 
-    def getPath(self):
-        return self.target_path
     
 class HDRExpander(ImageSequenceExpander):
     def executeGen(self, gen):
@@ -676,7 +670,7 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         item=evt.GetItem()
         print item
         expander = self.GetPyData(item)
-        if expander.getPath(): #Check if there is config for this item
+        if expander.ConfigKey(): #Check if there is config for this item
             pass
         else:
             evt.Veto()
@@ -766,6 +760,7 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         self.SetItemText(item, config.GetRawExt(), 3)
         self.SetItemText(item, config.GetImageExt(), 4)
         self.SetItemText(item, config.GetPrefix(), 5)
+
 
 class TreeCtrlFrame(wx.Frame):
     
