@@ -560,24 +560,22 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         print item, evt.GetInt()
         expander = self.GetPyData(item)
         if expander.ConfigKey(): #Check if there is config for this item
-            pass
+            self.oszlop = evt.GetInt()
         else:
             evt.Veto()
             return
 
+    config_methods = [CompositeImage.Config.SetTargetDir,
+                      CompositeImage.Config.SetRawExt,
+                      CompositeImage.Config.SetImageExt,
+                      CompositeImage.Config.SetPrefix]
+
     def OnEndLabelEdit(self, evt):
-        print "OnEndLabelEdit"
         item=evt.GetItem()
-        print item
-        expander = self.GetPyData(item)
-        # item=self.tree.GetCurrentItem()   # same result as evt.GetItem() 
-        print "evt.GetLabel()=", evt.GetLabel()
-        print evt.GetInt()
+        expander = self.GetPyData(item) 
+        new_value = evt.GetLabel()
         config = seq_config_dict[expander.ConfigKey()]
-        config.SetTargetDir(self.GetItemText(item, 2))
-        config.SetRawExt(self.GetItemText(item, 3))
-        config.SetImageExt(self.GetItemText(item, 4))
-        config.SetPrefix(self.GetItemText(item, 5))
+        self.config_methods[self.oszlop-2](config, new_value)
         seq_config_dict[expander.ConfigKey()] = config
 
     def processingStarted(self, item):
@@ -627,8 +625,7 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         self.gen = NullCommand()
         self.max_thread = 2
         self.gen_list = [(gen, 4)]
-        
-        
+              
     def executeNext(self):
         if self._cancel_wanted or self.iterator == None:
             return
