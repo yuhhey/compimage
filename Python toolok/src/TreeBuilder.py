@@ -690,14 +690,11 @@ class TreeCtrlFrame(wx.Frame):
         
         panel.SetSizer(sizer)
         
-        
-        hsizer = wx.BoxSizer(wx.HORIZONTAL)
-        hsizer.Add(panel, 1, wx.EXPAND)
         vsizer = wx.BoxSizer(wx.VERTICAL)
-        vsizer.Add(hsizer, 1, wx.EXPAND)
+        vsizer.Add(panel, 1, wx.EXPAND)
         vsizer.Add(button_sizer, 0, wx.EXPAND)
         self.SetSizer(vsizer)
-        #sizer.Fit(self)
+
         self.Layout()
         
         self.tree.Bind(wx.EVT_TREE_ITEM_EXPANDING, self.onItemExpand, id=1)
