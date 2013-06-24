@@ -145,6 +145,7 @@ class Expander(object):
         self.itemID = itemID
         self.tree.SetPyData(itemID, self)
         self.expanded = False
+        self.tree.SetType(itemID, self.type_string)
         config_key = self.ConfigKey()
         if config_key:
             self.tree.UpdateConfig(self.itemID, seq_config_dict[config_key])
@@ -260,6 +261,7 @@ def GlobStarFilter(path):
 
 
 class DirectoryExpander(Expander):
+    type_string = 'Dir'
     def __init__(self, tree, path, itemID):
         #FIXME: turn it to assert
         if not os.path.isdir(path):
@@ -268,7 +270,6 @@ class DirectoryExpander(Expander):
         
         tree.SetItemHasChildren(itemID)
         super(DirectoryExpander, self).__init__(tree, itemID)
-        self.tree.SetType(itemID, 'Dir')
         
     def isExpanded(self):
         return self.expanded
@@ -278,8 +279,7 @@ class DirectoryExpander(Expander):
             fullpath = os.path.join(self.path, fn)
             if os.path.isdir(fullpath):
                 child = self.tree.AppendItem(self.itemID, fn)
-                expander = DirectoryExpander(self.tree, fullpath, child)
-                config = seq_config_dict[expander.ConfigKey()]
+                DirectoryExpander(self.tree, fullpath, child)
                       
     def UpdateItemText(self, text):
         item_text = self.tree.GetItemText(self.itemID)
@@ -382,6 +382,7 @@ class RootItemExpander(DirectoryExpander):
 
 
 class ImageExpander(Expander):
+    type_string = 'img'
     def __init__(self, tree, itemID, image):
         super(ImageExpander, self).__init__(tree, itemID)
         self.image = image
@@ -458,6 +459,7 @@ class ImageSequenceExpander(Expander):
 
     
 class HDRExpander(ImageSequenceExpander):
+    type_string = 'HDR'
     def executeGen(self, gen):
         if gen == None:
             gen = CompositeImage.HDRGenerator()
@@ -470,6 +472,7 @@ class HDRExpander(ImageSequenceExpander):
 
 
 class PanoExpander(ImageSequenceExpander):
+    type_string = 'Pano'
     def executeGen(self, gen):
         if gen == None:
             gen = CompositeImage.PanoGenerator()
@@ -479,7 +482,7 @@ class PanoExpander(ImageSequenceExpander):
 
     def ConfigKey(self):
         return self._ConfigKey('PANO')
-    
+
     
 class TreeDict(object):
     """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
@@ -814,7 +817,7 @@ def kill_child_processes(parent_pid, sig=signal.SIGTERM):
         for pid_str in ps_output.split("\n")[:-1]:
             try:
                 os.kill(int(pid_str), sig)
-            except OSError as e:
+            except OSError:
                 print "Kill error", pid_str, ps_pid
 
 
