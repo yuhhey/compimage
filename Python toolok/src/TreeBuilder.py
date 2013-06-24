@@ -43,12 +43,17 @@ class SeqParserCommand(Command):
         self.path = path
         
     def __call__(self):
-        hdr_config = seq_config_dict[self.path]
+        config = seq_config_dict[self.path]
         try: 
-            hdrs, single_images = CompositeImage.CollectSeqStrategy().parseDir(self.path, hdr_config)
+            collect_seq_strategy = CompositeImage.CollectSeqStrategy()
+            hdrs, single_imgs = collect_seq_strategy.parseDir(self.path,
+                                                              config)
             # TODO: Még a HDR-eket nem vizsgálja
-            panos, single_images = CompositeImage.CollectSeqStrategy().parseIMGList(single_images, CompositeImage.PanoWeakConfig(hdr_config.GetTargetDir(), 25))
-            return (hdrs, panos, single_images)
+            target_dir = config.GetTargetDir()
+            pano_config = CompositeImage.PanoWeakConfig(target_dir, 25)
+            panos, single_imgs = collect_seq_strategy.parseIMGList(single_imgs,
+                                                                   pano_config)
+            return (hdrs, panos, single_imgs)
         except IOError:  # handling the case when there are no raw files
             print "No RAW input to parse in %s" % self.path    
 
@@ -578,7 +583,8 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
         expander = self.GetPyData(item) 
         new_value = evt.GetLabel()
         config = seq_config_dict[expander.ConfigKey()]
-        self.config_methods[self.oszlop-2](config, new_value)
+        method_idx = self.oszlop-2
+        self.config_methods[method_idx](config, new_value)
         seq_config_dict[expander.ConfigKey()] = config
 
     def processingStarted(self, item):
