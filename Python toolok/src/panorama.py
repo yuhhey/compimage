@@ -116,7 +116,7 @@ class TeljesPanorama:
         self.yawValues = listKeys(self.yawBucket)
         self.pitchValues = listKeys(self.pitchBucket)
 
-    def analyzePanorama(self):
+    def AnalyzePanorama(self):
         #print inspect.stack()[0][3]
         self.fillBuckets()
 
@@ -200,17 +200,22 @@ class TeljesPanorama:
         self.fajl_path=fajl_path
         
         crop_factor=self.p.getImage(0).getExifCropFactor()
+        # TODO: objective adatokat rámásolni
+        
         for i in range(len(self.x_hianyzo)):
-            #print i, len(self.x_hianyzo)
+            
             roll_szamolt = self.roll_eh[IDX["C"]] \
                          + self.x_hianyzo[i]*self.roll_eh[IDX["XM"]] \
                          + self.y_hianyzo[i]*self.roll_eh[IDX["YM"]]
+                         
             pitch_szamolt = self.pitch_eh[IDX["C"]] \
                           + self.x_hianyzo[i]*self.pitch_eh[IDX["XM"]] \
                           + self.y_hianyzo[i]*self.pitch_eh[IDX["YM"]]
+                          
             yaw_szamolt = self.yaw_eh[IDX["C"]] \
                         + self.x_hianyzo[i]*self.yaw_eh[IDX["XM"]] \
                         + self.y_hianyzo[i]*self.yaw_eh[IDX["YM"]]
+                        
             fajlnev=(self.fajl_path+"%04d.%s") % (self.fajl_l[i], kiterjesztes)
             
             self.addFajlToPTO(fajlnev, roll_szamolt,\
@@ -228,7 +233,7 @@ class TeljesPanorama:
     def generateTeljes(self, fajlnev, fajl_path, fajl_l, sorok=0, oszlopok=0, suffix="_teljes", kiterjesztes='TIF'):
         #print inspect.stack()[0][3]
         self.readPTO(fajlnev)
-        self.analyzePanorama()
+        self.AnalyzePanorama()
         self.illeszt()
         self.calculateHianyzo(sorok, oszlopok)
         

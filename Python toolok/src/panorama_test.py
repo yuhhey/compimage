@@ -39,43 +39,72 @@ class kiegFunkTeszt(unittest.TestCase):
 class TeljesPanoramaTest(unittest.TestCase):
     def setUp(self):
         self.tp = panorama.TeljesPanorama()
-        self.tp.readPTO('/storage/Panorama/Borneo/Borneo_MtKinabaluUtmellol_1_8bit.pto')
+        self.tp.readPTO('../test_input/MarinaBay_esoben.pto')
 
     def tearDown(self):
         del self.tp
         
-    def guessExtTest(self):
+    def test_guessExt(self):
         e_result = '.TIF'
         result = self.tp.guessExt()
         self.assertEqual(result,
                          e_result,
                          'guessExtTest: %s vs %s' % (result, e_result))
 
-    def updateSizeTest(self):
-        self.tp.analyzePanorama()
+    def test_updateSize(self):
+        self.tp.AnalyzePanorama()
+        
+        sorok_ptobol = 10
+        oszlopok_ptobol = 19
 
         self.tp.updateSize(0, 0)
-        self.assertEqual(self.tp.sorok, 3, 'sorok - %d vs %d' % (self.tp.sorok, 3))
+        self.assertEqual(self.tp.sorok, sorok_ptobol, 'sorok - %d vs %d' % (self.tp.sorok, sorok_ptobol))
+        self.assertEqual(self.tp.oszlopok, oszlopok_ptobol, 'oszlopok - %d vs %d' % (self.tp.oszlopok, oszlopok_ptobol))
+
+        ext_sorok = 12
+        self.tp.updateSize(ext_sorok, 0)
+        self.assertEqual(self.tp.sorok, ext_sorok, 'sorok - %d vs %d' % (self.tp.sorok, ext_sorok))
         self.assertEqual(self.tp.oszlopok, 5, 'oszlopok - %d vs %d' % (self.tp.oszlopok, 5))
 
-        self.tp.updateSize(10, 0)
-        self.assertEqual(self.tp.sorok, 10, 'sorok - %d vs %d' % (self.tp.sorok, 10))
-        self.assertEqual(self.tp.oszlopok, 5, 'oszlopok - %d vs %d' % (self.tp.oszlopok, 5))
 
-        self.tp.updateSize(0,15)
-        self.assertEqual(self.tp.sorok, 3, 'sorok - %d vs %d' % (self.tp.sorok, 3))
-        self.assertEqual(self.tp.oszlopok, 15, 'oszlopok - %d vs %d' % (self.tp.oszlopok, 5))
+        ext_oszlopok = 21
+        self.tp.updateSize(0,ext_oszlopok)
+        self.assertEqual(self.tp.sorok, sorok_ptobol, 'sorok - %d vs %d' % (self.tp.sorok, sorok_ptobol))
+        self.assertEqual(self.tp.oszlopok, ext_oszlopok, 'oszlopok - %d vs %d' % (self.tp.oszlopok, ext_oszlopok))
+        
+        ext_sorok_kicsi = 8
+        self.tp.updateSize(ext_sorok_kicsi, 0)
 
-    def fillBucketTest(self):
+    def test_fillBucket(self):
         self.tp.fillBuckets()
         e_yawBucket = {-11.2607813519595: [1, 6], -5.47152753193876: [2, 7], 0.382195302610455: [3, 8], 11.9874309160965: [0, 5, 10], 6.1456880562248: [4, 9]}
         e_pitchBucket = {0.112122265335545: [1, 2, 3, 4, 5], 3.9245062696787: [0], -3.54509678790692: [6, 7, 8, 9, 10]}
 
         self.assertEqual(e_yawBucket, self.tp.yawBucket, 'yaw')
         self.assertEqual(e_pitchBucket, self.tp.pitchBucket, 'pitch')
+        
+        
+    @unittest.skip("Not implemented")
+    def test_GetImageXY(self):
+        self.tp.fillBuckets()
+        
+        xmax = self.tp.oszlopok
+        ymax = self.tp.sorok
+        
+        valid_idx = (1,1)
+        outsidey_idx = (1,-1)
+        outsidex_idx = (-1, 1)
+        missing_idx = (x, y)
+        
+        img_valid = self.tp.GetImageXY(valid_idx)
+    
+    @unittest.skip("Not implemented")
+    def test_removeFilesInPanorama(self):
+        in_fajl_lst = range(12)
+        
+        out_fajl_lst.self.tp.removeFilesInPanorama(in_fajl_lst)
 
-        
-        
+@unittest.skip("Szomszed testing skipped")
 class SzomszedTeszt(unittest.TestCase):
     def setUp(self):
         self.sz = Szomszed()
@@ -96,6 +125,7 @@ class SzomszedTeszt(unittest.TestCase):
     def checkLen(self, cimke, e_res):
         res = len(self.sz)
         self.assertEqual(e_res, res, cimke + ('e_res: %d, res: %d\n' % (e_res, res)))
+        
     def test_len(self):
         
         e_res_vector = [8, 3, 3, 3, 3, 5, 5, 5, 5]
@@ -105,6 +135,7 @@ class SzomszedTeszt(unittest.TestCase):
             self.sz.setOrigo(t[1], t[2])
             self.checkLen(t[0], e_res_vector[i])
             i += 1    
+            
     def check_iterator(self, cimke, e_res_vector):
         
         i = 0
@@ -115,6 +146,17 @@ class SzomszedTeszt(unittest.TestCase):
     def test_iterator(self):
         
         print ''
+
+
+class RealDataTeszt(object):
+    def test_WandaPlaza(self):
+        tp = panorama.TeljesPanorama()
+        tp.readPTO('../test_input/2011_06_23_WandaPlaza_8bit.pto')
+        tp.AnalyzePanorama()
+
+        tp.calculateHianyzo(3, 5)
+                
+        print tp
         
 def suite(testKiegFunk=False, testTeljesPanorama=False):
 
@@ -132,8 +174,10 @@ def suite(testKiegFunk=False, testTeljesPanorama=False):
 
 
 if __name__ == '__main__':
-    runner = unittest.TextTestRunner(verbosity=2)
-    test_suite=suite(testKiegFunk = True,
-                     testTeljesPanorama = True)
-    
-    runner.run(test_suite)
+    rd = RealDataTeszt()
+    rd.test_WandaPlaza()
+#     runner = unittest.TextTestRunner(verbosity=2)
+#     test_suite=suite(testKiegFunk = True,
+#                      testTeljesPanorama = True)
+#     
+#     runner.run(test_suite)
