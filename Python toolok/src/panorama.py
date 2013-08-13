@@ -245,7 +245,7 @@ class TeljesPanorama:
     def GetGrid(self):
         g = ()
         """ külön lista tárolja az egyes értékeket, mert az eredeti dict-ben biztosan nem rendezetten vannak"""
-        for p in self.pitchValues:
+        for p in reversed(self.pitchValues):
             pitchs = set(self.pitchBucket[p])
             sor = ()
             for y in self.yawValues:
