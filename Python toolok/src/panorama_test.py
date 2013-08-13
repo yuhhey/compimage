@@ -148,15 +148,29 @@ class SzomszedTeszt(unittest.TestCase):
         print ''
 
 
-class RealDataTeszt(object):
+class RealDataTeszt(unittest.TestCase):
     def test_WandaPlaza(self):
         tp = panorama.TeljesPanorama()
         tp.readPTO('../test_input/2011_06_23_WandaPlaza_8bit.pto')
         tp.AnalyzePanorama()
 
         tp.calculateHianyzo(3, 5)
-                
-        print tp
+
+    def test_getGrid(self):
+        
+        tp = panorama.TeljesPanorama()
+        tp.readPTO('../test_input/2011_06_23_WandaPlaza_8bit.pto')
+        tp.AnalyzePanorama()
+        
+        g = tp.GetGrid()
+        for sor in g:
+            for k in sor:
+                if type(k) is int:
+                    print tp.p.getSrcImage(k).getFilename()
+                else:
+                    print "Nincs kep"
+            print
+        
         
 def suite(testKiegFunk=False, testTeljesPanorama=False):
 

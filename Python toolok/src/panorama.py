@@ -241,3 +241,21 @@ class TeljesPanorama:
         fajlnev=addSuffix(self.pto_nev, suffix)
         self.writePTO(fajlnev)
         print "Kiírva: "
+
+    def GetGrid(self):
+        g = ()
+        """ külön lista tárolja az egyes értékeket, mert az eredeti dict-ben biztosan nem rendezetten vannak"""
+        for p in self.pitchValues:
+            pitchs = set(self.pitchBucket[p])
+            sor = ()
+            for y in self.yawValues:
+                yaws = set(self.yawBucket[y])
+                m = yaws&pitchs
+                if m:
+                    sor = sor +(m.pop(),)
+                else:
+                    sor = sor + ("nincs kep",)
+                
+            g = g + (sor,)
+        
+        return g
