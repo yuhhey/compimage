@@ -490,7 +490,8 @@ class PanoExpander(ImageSequenceExpander):
 
     
 class TreeDict(object):
-    """ A dictionary which assumes keys are directory paths. It looks up elements with key up in the path"""
+    """ A dictionary which assumes keys are directory paths. It looks up
+        elements with key up in the path"""
     def __init__(self):
         self.d = {}
                 

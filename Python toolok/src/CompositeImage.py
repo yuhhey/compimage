@@ -467,7 +467,7 @@ class PanoStrongConfig(Config):
         Config.__init__(self, targetdir, checkers, raw_ext, hdr_ext, prefix)
 
     def __str__(self):
-        return "PanoWeakConfig:\n" + \
+        return "PanoStrongConfig:\n" + \
                Config.__str__(self)               
 
 
