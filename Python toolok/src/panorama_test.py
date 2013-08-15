@@ -8,6 +8,25 @@ import inspect
 import hsi
 import panorama
 import random
+import mock
+
+class hsiPanoramaMock(mock.MagicMock):
+    def readData(self, ifs):
+        pass
+    
+    def getNrOfImages(self):
+        pass
+        
+    def getImage(self, pic_idx):
+        pass
+    
+class hsiSrcPanoImageMock(mock.MagicMock):
+    def setRoll(self):
+        pass
+    def setPitch(self):
+        pass
+    def setYaw(self):
+        pass
 
 class kiegFunkTeszt(unittest.TestCase):
     def addSuffixTest(self):
@@ -149,12 +168,16 @@ class SzomszedTeszt(unittest.TestCase):
 
 
 class RealDataTeszt(unittest.TestCase):
-    def test_WandaPlaza(self):
+    @mock.patch('hsi.Panorama')
+    @mock.patch('hsi.SrcPanoImage', spec=hsi.SrcPanoImage)
+    def test_WandaPlaza(self, hSrcImgMock, hpanoMock):
         tp = panorama.TeljesPanorama()
+        
         tp.readPTO('../test_input/2011_06_23_WandaPlaza_8bit.pto')
         tp.AnalyzePanorama()
-
+        
         tp.calculateHianyzo(3, 5)
+        self.assertTrue(tp.p.readData.called)
 
     def test_getGrid(self):
         
