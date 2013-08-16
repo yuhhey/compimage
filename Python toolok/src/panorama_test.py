@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# -*- coding: utf-8 -*-
-
-
 import unittest
 import inspect
 import panorama
@@ -55,6 +52,7 @@ class kiegFunkTeszt(unittest.TestCase):
         result = panorama.listKeys(adict)
         self.assertNotEqual(result, e_result, 'Extra 13')
         
+@unittest.skip("Sokat szemetel a consolre")
 class TeljesPanoramaTest(unittest.TestCase):
     def setUp(self):
         self.tp = panorama.TeljesPanorama()
