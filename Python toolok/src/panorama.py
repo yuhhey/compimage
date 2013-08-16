@@ -33,7 +33,7 @@ def listKeys(adict):
 IDX={"C":0, "XM":1, "YM":2}
 PAR={"Y":1, "X":2, "ROLL":3, "PITCH":4, "YAW":5, "FILENAME":6}
 
-class TeljesPanorama:
+class TeljesPanorama(object):
 
     def __init__(self):
 
