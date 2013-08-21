@@ -44,7 +44,7 @@ class TeljesPanorama(object):
         self.sorok = 0
         self.oszlopok = 0
 
-        self.epsilon = 2.0 # Erre az értékre érzékeny az eredmény. A teljes panorama automatikus forgatás segíthet talán
+        self.epsilon = 1.5 # Erre az értékre érzékeny az eredmény. A teljes panorama automatikus forgatás segíthet talán
         
         self.yawBucket = {}
         self.pitchBucket = {}

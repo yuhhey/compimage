@@ -6,7 +6,7 @@ import random
 tp = panorama.TeljesPanorama()
 tp.readPTO(sys.argv[1])
 
-pto_nev = os.path.splitext(os.path.basename(sys.argv[1]))[0]
+pto_nev = "pto_" + os.path.splitext(os.path.basename(sys.argv[1]))[0]
 
 NrOfImages = tp.p.getNrOfImages()
 
