@@ -1,3 +1,23 @@
+class ImageData(object):
+    def __init__(self, yaw, pitch, roll, fn):
+        
+        self.__yaw = yaw
+        self.__pitch = pitch
+        self.__roll = roll
+        self.__fn = fn
+        
+    def getYaw(self):
+        return self.__yaw
+    
+    def getPitch(self):
+        return self.__pitch
+    
+    def getRoll(self):
+        return self.__roll
+    
+    def getFilename(self):
+        return self.__fn
+
 pto_2011_06_11_ShagriLaFele_8bit_3888x2592 = [
 ImageData( -11.3483846952908,-16.8852694346440,  0.0472041812342, "2011_06_11/ShangriLaFele/8bit/kicsi/IMG_9549.TIF"),
 ImageData(  -4.4087213710827, -9.7628962819756, -0.0336466956244, "2011_06_11/ShangriLaFele/8bit/kicsi/IMG_9357.TIF"),
