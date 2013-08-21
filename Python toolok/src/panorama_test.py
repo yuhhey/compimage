@@ -215,6 +215,17 @@ class Wandafele_ejszaka_8bit(unittest.TestCase):
             
         print len(g)
         
+class ListGrids(object):
+    def process(self, fn):
+        tp = panorama.TeljesPanorama()
+        tp.readPTO(fn)
+        tp.AnalyzePanorama()
+        
+        g = tp.GetGrid()
+        
+        print fn
+        print g
+        
         
 def suite(testKiegFunk=False, testTeljesPanorama=False):
 
@@ -232,8 +243,16 @@ def suite(testKiegFunk=False, testTeljesPanorama=False):
 
 
 if __name__ == '__main__':
-    rd = RealDataTeszt()
-    rd.test_WandaPlaza()
+    lg = ListGrids()
+    result = inspect.getmembers(raw_data)
+    for m in result:
+        if (-1 == m[0].find("side_effect")) and (m[0].find("pto_") == 0):
+            fn = "../test_input/"+m[0][4:]+".pto"
+            lg.process(fn)
+    
+    
+    #rd = RealDataTeszt()
+    #rd.test_WandaPlaza()
 #     runner = unittest.TextTestRunner(verbosity=2)
 #     test_suite=suite(testKiegFunk = True,
 #                      testTeljesPanorama = True)
