@@ -254,7 +254,7 @@ class TeljesPanorama(object):
                 if m:
                     sor = sor +(m.pop(),)
                 else:
-                    sor = sor + ("nincs kep",)
+                    sor = sor + (-1,)
                 
             g = g + (sor,)
         
