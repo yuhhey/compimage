@@ -7,7 +7,7 @@ from optparse import OptionParser
 def setup_config_parser():
     usage = "usage: %prog [options] raw_files_dir img_sequence_dir"
     config_parser = OptionParser(usage=usage)
-    config_parser.add_option('-g', '--generate', action=store_true, dest='generate', default=Fale,
+    config_parser.add_option('-g', '--generate', action='store_true', dest='generate', default=Fale,
                              help="Type of the sequences to identify. Valid values: HDR, TIME, PANO. (Default: %default)")
     config_parser.add_option('-t', '--sequence_type', dest='seq_type', default='HDR',
                              help="Type of the sequences to identify. Valid values: HDR, TIME, PANO. (Default: %default)")
