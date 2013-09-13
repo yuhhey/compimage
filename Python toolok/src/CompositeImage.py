@@ -424,15 +424,17 @@ class Config():
                                 image_subdir,
                                 os.path.splitext(self.GetBasename(f))[0]+self.GetImageExt())
         return img_name
+  
         
 class HDRConfig(Config):
     def __init__(self,
                  targetdir,
-                 checkers=[TimeStampChecker(7), AEBChecker(), SameCameraChecker()],
+                 maxdiff=7,
                  raw_ext='.CR2',
-                 hdr_ext='.TIF',
+                 seq_ext='.TIF',
                  prefix='${dir}'):
-        Config.__init__(self, targetdir, checkers, raw_ext, hdr_ext, prefix)
+        checkers=[TimeStampChecker(maxdiff), AEBChecker(), SameCameraChecker()]
+        Config.__init__(self, targetdir, checkers, raw_ext, seq_ext, prefix)
 
     def __str__(self):
         return "HDRConfig:\n" + \
@@ -440,7 +442,7 @@ class HDRConfig(Config):
 
                
 class PanoWeakConfig(Config):
-    def __init__(self, targetdir, maxdiff=7, raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}'):
+    def __init__(self, targetdir, maxdiff=7, raw_ext='.CR2', seq_ext='.TIF', prefix='${dir}'):
         checkers = [TimeStampChecker(maxdiff),
                     SameCameraChecker(),
                     ISOChecker(),
@@ -448,7 +450,7 @@ class PanoWeakConfig(Config):
                     FocalLengthChecker(),
                     LensModelChecker(),
                     SelfTimerChecker()]
-        Config.__init__(self, targetdir, checkers, raw_ext, hdr_ext, prefix)
+        Config.__init__(self, targetdir, checkers, raw_ext, seq_ext, prefix)
 
     def __str__(self):
         return "PanoWeakConfig:\n" + \
@@ -456,7 +458,7 @@ class PanoWeakConfig(Config):
    
                
 class PanoStrongConfig(Config):
-    def __init__(self, targetdir, maxdiff=7, raw_ext='.CR2', hdr_ext='.TIF', prefix='${dir}'):
+    def __init__(self, targetdir, maxdiff=7, raw_ext='.CR2', seq_ext='.TIF', prefix='${dir}'):
         checkers = [TimeStampChecker(maxdiff),
                     SameCameraChecker(),
                     ISOChecker(50),
@@ -464,7 +466,7 @@ class PanoStrongConfig(Config):
                     FocalLengthChecker(),
                     LensModelChecker(),
                     SelfTimerChecker(20)]
-        Config.__init__(self, targetdir, checkers, raw_ext, hdr_ext, prefix)
+        Config.__init__(self, targetdir, checkers, raw_ext, seq_ext, prefix)
 
     def __str__(self):
         return "PanoStrongConfig:\n" + \

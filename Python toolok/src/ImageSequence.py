@@ -9,11 +9,13 @@ import Image
 import StringIO
 import itertools
 
+
 def readMetadata(filename):
     """ Reads metadata from 'filename' and returns the metadata object ready to be used"""
     metadata = pyexiv2.ImageMetadata(filename)
     metadata.read()
     return metadata
+
 
 def timestampFromMetadata(metadata):
     """ Returns the original date and time from the image represented by metadata
@@ -22,6 +24,7 @@ def timestampFromMetadata(metadata):
     datum = tag_datum.value    
     tag_exposure = metadata['Exif.Photo.ExposureTime']
     return (datum - datetime.timedelta(microseconds = floor(tag_exposure.value * 1000000)) , datum)
+
 
 def readThumbNailFromCR2(filename):
     md = readMetadata(filename)
@@ -36,6 +39,7 @@ def readThumbNailFromCR2(filename):
     elif r == 6:
         im = im.transpose(Image.ROTATE_270)
     return im, md
+
 
 def SequenceWorkflow(indir, outdir, maxdiff):
     
@@ -57,6 +61,7 @@ def SequenceWorkflow(indir, outdir, maxdiff):
         gen_HDR_script = SequenceScriptWriter(outdir, fnl.HDRGenPrefix()) # '.TIF is a default parameter
         gen_HDR_script.createHDRGenScript(cr2_imgseq)
         gen_HDR_script.save()
+ 
         
 class FileNameLogic:
     def __init__(self, in_dir, out_dir):
@@ -96,6 +101,7 @@ class FileNameLogic:
     def HDRGenScriptName(self):
         return self.HDRGenPrefix() + '.sh'
 
+
 class TimeStampChecker:
     def __init__(self, maxdiff):
         self.maxdiff = maxdiff
@@ -111,6 +117,7 @@ class TimeStampChecker:
             if (abs(datumshot - datum_from_seq_saved) < maxtimediff):
                 return True
         return len(adict) == 0
+ 
     
 class AEBChecker:
     def __init__(self):
@@ -176,6 +183,7 @@ class Sequence:
         if basenameonly:
             return [os.path.basename(f) for f in self.seq_data.keys()]
         else: return self.seq_data.keys()
+
 
 class Parser:
     tif_ext = ['TIF', 'TIFF', 'tif', 'tiff']
@@ -266,6 +274,7 @@ class Parser:
         if len(seq) > 1:   # Ha éppen HDR sequence-re végződik a fájllista, akkor azt nem adja hozzá a ciklusban a hdr listához.
             self.hdr_l.append(seq)
         return
+ 
     
 class ShellScriptWriter:
     """Represents script logic. Returns script elements as strings"""
@@ -303,8 +312,10 @@ class ShellScriptWriter:
         fout.write(str(self))
         fout.close()
 
+
 def createOutputFName(fname):
     return os.path.split(fname)[1]
+
 
 def findSequences(pattern, filetype, maxdiff):
     """ Parses pattern for image sequences of filetype""" 
@@ -313,7 +324,6 @@ def findSequences(pattern, filetype, maxdiff):
     imgseq.searchSeq(maxdiff)
     return imgseq
     
-
 
 class SequenceScriptWriter(ShellScriptWriter):
     def __init__(self, output_dir, prefix):
