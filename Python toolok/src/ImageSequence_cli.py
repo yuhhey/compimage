@@ -22,12 +22,12 @@ def process_seq_type(config_parser, config, outdir):
             'weakpano':(CompositeImage.PanoWeakConfig, CompositeImage.PanoGenerator),
             'strongpano':(CompositeImage.PanoStrongConfig, CompositeImage.PanoGenerator)}
 
-    if config.seq_type in conf_dict.keys():
-        seq_conf = conf_dict[config.seq_type][0](outdir,
-                                                 config.maxdiff,
-                                                 config.raw_ext,
-                                                 config.img_ext,
-                                                 config.img_prefix)
+    if config.seq_type in confs.keys():
+        seq_conf = confs[config.seq_type][0](outdir,
+                                             config.maxdiff,
+                                             config.raw_ext,
+                                             config.img_ext,
+                                             config.img_prefix)
         seq_gen = confs[config.seq_type][1]
         return seq_conf, seq_gen
     else:
