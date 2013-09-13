@@ -4,7 +4,7 @@ import os.path
 from optparse import OptionParser
 
 
-def setup_config_parser(usage):
+def setup_config_parser():
     usage = "usage: %prog [options] raw_files_dir img_sequence_dir"
     config_parser = OptionParser(usage=usage)
     config_parser.add_option('-t', '--sequence_type', dest='seq_type', default='HDR', help="Type of the sequences to identify. Valid values: HDR, TIME, PANO. (Default: %default)")
@@ -42,7 +42,7 @@ def process_dirs(config_parser, pos_args):
     return outdir, indir
 
 
-config_parser = setup_config_parser(usage)
+config_parser = setup_config_parser()
 (config, pos_args) = config_parser.parse_args()
 
 outdir, indir = process_dirs(config_parser, pos_args)
