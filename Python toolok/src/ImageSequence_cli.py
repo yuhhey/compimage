@@ -2,7 +2,15 @@ import sys
 import CompositeImage
 import os.path
 from optparse import OptionParser
+import copy
 
+
+def ProcessFolder(cmd, seq_parser_config, directory):
+    img_seqs, single_imgs = collect_seq_strategy.parseDir(directory, seq_parser_config)
+    for i, cimg in enumerate(reversed(img_seqs)):
+        seq_config = copy.deepcopy(seq_parser_config)
+        seq_config.SetPrefix(seq_parser_config.GetPrefix() + '_%d' % i)
+        cmd(cimg, seq_config)
 
 def setup_config_parser():
     usage = "usage: %prog [options] raw_files_dir img_sequence_dir"
@@ -59,17 +67,16 @@ seq_parser_config, seq_generator = process_seq_type(config_parser, config, outdi
 
 collect_seq_strategy = CompositeImage.CollectSeqStrategy()
 
-if config.recursive:
-    print '-R is not implemented yet'
-    pass
-    # walk through
+if config.generate:
+    cmd = seq_generator
 else:
-    img_seqs, single_imgs = collect_seq_strategy.parseDir(indir, seq_parser_config)
-    if config.generate:
-        cmd = seq_generator
-    else:
-        cmd = CompositeImage.SymlinkGenerator()
-    for cimg in img_seqs:
-        cmd(cimg, seq_parser_config)
+    cmd = CompositeImage.SymlinkGenerator()
+
+if config.recursive:
+    for (p,d,f) in os.walk(indir):
+        print "Processing %s" % p
+        ProcessFolder(cmd, seq_parser_config, p)
+else:
+    ProcessFolder(cmd, seq_parser_config, indir)
     
 
