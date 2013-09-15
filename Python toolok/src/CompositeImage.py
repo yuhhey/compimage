@@ -31,7 +31,13 @@ class SingleImage(object):
         return tag.value
     
     def __eq__(self, si):
-        return (si._fn == self._fn)
+        if type(si) is str:
+            return si == self._fn
+        else:
+            return (si._fn == self._fn)
+    
+    def __str__(self):
+        return self._fn
 
 
 class CompositeImage(object):
@@ -237,7 +243,7 @@ class CollectSeqStrategy:
 
     def parseIMGList(self, imgs, seq_config):
         if len(imgs) == 0:
-            return [], []
+            return CompositeImage(), CompositeImage()
         try:
             imgs.sort(key=lambda si:(timestampFromMetadata(si))[0])
         except IOError as e:
@@ -271,7 +277,7 @@ class CollectSeqStrategy:
         hdrs, sic = self.parseIMGList(imgs, seq_config)
         return hdrs, sic
     
-    def parseMagicLanternSHFiles(self, d, sic, ext):
+    def parseMagicLanternSHFiles(self, d, images, ext):
         sh_files = [fn for fn in glob.glob(os.path.join(d,'HDR*.SH'))]
         hdrs = []
         for shfn in sh_files:
@@ -286,21 +292,19 @@ class CollectSeqStrategy:
             end_seq_num = int(seq_lst[end_idx:end_idx+4])
             
             #TODO nem kezeli jol az atfordulast
-            images = sic.getCompImage()
             hdr = CompositeImage()
             for idx in range(start_seq_num, end_seq_num+1):
                 fn = os.path.join(d, '%s%04d%s' %(img_prefix, idx, ext))
-                if fn in images:
-                    hdr.add(images[fn])
+                for i, img in enumerate(images):
+                    if img.name() == fn:
+                        hdr.add(images[i])
+                        del images[i]
                 else: # stop this loop and drop the hdr
-        
                     break
             else:
                 hdrs.insert(0, hdr)
-                for fn in hdr.keys():
-                    del images[fn]
                     
-        return hdrs, sic
+        return hdrs, images
                 
 
     def parseDir(self, d, hdr_config=None):
@@ -312,10 +316,11 @@ class CollectSeqStrategy:
         fl = [fn for fn in glob.glob(path_with_wildcard)]
         hdrs, sic = self.parseFileList(fl, hdr_config)
         
-        print len(sic)
-        mlhdrs, sic = self.parseMagicLanternSHFiles(d, sic, hdr_config.GetRawExt())
-        print len(sic)
-        return hdrs+mlhdrs, sic
+        if len(sic) > 0: # All HDRs are found if sic is empty. sic is an empty list in such cases
+            mlhdrs, sic = self.parseMagicLanternSHFiles(d, sic, hdr_config.GetRawExt())
+            return hdrs+mlhdrs, sic
+        else:
+            return hdrs, sic
             
       
 def timestampFromMetadata(simg):
