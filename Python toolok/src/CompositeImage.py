@@ -332,28 +332,6 @@ def timestampFromMetadata(simg):
     return dt
 
 
-class SymlinkGenerator:
-    def __init__(self):
-        self.targetDir=""
-        
-    def __call__(self, cimg, config):
-        target_dir = config.GetTargetDir()
-        raw_ext = config.GetRawExt()
-        raw_dir = os.path.join(target_dir, raw_ext[1:])
-        
-        
-        if not os.path.exists(raw_dir):
-            os.makedirs(raw_dir)
-            
-        os.chdir(raw_dir)
-        for f in cimg.getFilelist():
-            ln = config.GetBasename(f)
-            if not os.path.exists(ln):
-                os.symlink(f, ln)
-                
-        return 0
-
-
 class Config():
     """Contains all the configuration data used in HDR sequence handling and final image generation"""
     def __init__(self,targetdir, checkers, raw_ext='.CR2', img_ext='.TIF', prefix='${dir}'):
@@ -398,6 +376,8 @@ class Config():
         return self._checkers
 
     def GetImageSubdir(self):
+        """ returns the subdir containing the converted images as relative
+            path to 'TargetDir"""
         return self.GetImageExt()[1:]
 
     def GetIndex(self):
@@ -429,6 +409,18 @@ class Config():
                                 image_subdir,
                                 os.path.splitext(self.GetBasename(f))[0]+self.GetImageExt())
         return img_name
+    
+    def GetRawDir(self):
+        target_dir = self.GetTargetDir()
+        raw_ext = self.GetRawExt()
+        raw_dir = os.path.join(target_dir, raw_ext[1:])
+        return raw_dir
+    
+    def GetImgDir(self):
+        target_dir = self.GetTargetDir()
+        img_ext = self.GetImageExt()
+        img_dir = os.path.join(target_dir, img_ext[1:])
+        return img_dir
   
         
 class HDRConfig(Config):
@@ -476,6 +468,53 @@ class PanoStrongConfig(Config):
     def __str__(self):
         return "PanoStrongConfig:\n" + \
                Config.__str__(self)               
+
+
+class SymlinkGenerator:
+    def __init__(self):
+        self.targetDir=""
+
+    def __call__(self, cimg, config):
+        raw_dir = config.GetRawDir()
+        
+        
+        if not os.path.exists(raw_dir):
+            os.makedirs(raw_dir)
+            
+        os.chdir(raw_dir)
+        for f in cimg.getFilelist():
+            ln = config.GetBasename(f)
+            if not os.path.exists(ln):
+                os.symlink(f, ln)
+                
+        return 0
+
+
+def RawtoImgGenerator(config, dcraw_cmd, glob_for_files):
+    """ calls dcraw to convert raw files to TIF""" 
+    rawdir = config.GetRawDir()
+    raw_files = glob.glob(rawdir + '/*' + config.GetRawExt())
+    
+    cmd = dcraw_cmd + raw_files
+        
+    result = subprocess.check_output(dcraw_cmd)             
+    # dcraw save the output into the folder of the input file.
+    # We need to copy it to the target
+    
+    img_fls = os.path.join(rawdir, glob_for_files)
+    mv_cmd = ['mv', img_fls, config.GetImgDir()]
+    
+    
+def RawToThumbnailGenerator(config):    
+    dcraw_cmd = ['dcraw', '-e']
+    glob_for_files = '*.thumb.jpg'
+    RawtoImgGenerator(config, dcraw_cmd, glob_for_files)
+
+    
+def RawToTifGenerator(config):
+    dcraw_cmd = ['dcraw', '-T']
+    glob_for_files = '*.tiff'
+    RawtoImgGenerator(config, dcraw_cmd, glob_for_files)
 
 
 class HDRGenerator():
