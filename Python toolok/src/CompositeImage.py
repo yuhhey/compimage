@@ -490,10 +490,11 @@ class SymlinkGenerator:
         return 0
 
 
-def RawtoImgGenerator(config, dcraw_cmd, glob_for_files):
+def RawtoImgGenerator(config, dcraw_cmd, cimg, file_ext):
     """ calls dcraw to convert raw files to TIF""" 
     rawdir = config.GetRawDir()
-    raw_files = glob.glob(rawdir + '/*' + config.GetRawExt())
+    files = cimg.getFilesList()
+    raw_files = [os.path.join(rawdir, os.path.basename(f)) for f in files]
     
     cmd = dcraw_cmd + raw_files
         
@@ -501,20 +502,20 @@ def RawtoImgGenerator(config, dcraw_cmd, glob_for_files):
     # dcraw save the output into the folder of the input file.
     # We need to copy it to the target
     
-    img_fls = os.path.join(rawdir, glob_for_files)
+    img_fls = os.path.join(rawdir, '*'+file_ext)
     mv_cmd = ['mv', img_fls, config.GetImgDir()]
     
     
-def RawToThumbnailGenerator(config):    
+def RawToThumbnailGenerator(cimg, config):    
     dcraw_cmd = ['dcraw', '-e']
-    glob_for_files = '*.thumb.jpg'
-    RawtoImgGenerator(config, dcraw_cmd, glob_for_files)
+    
+    RawtoImgGenerator(config, dcraw_cmd, files, '.jpg')
 
     
-def RawToTifGenerator(config):
+def RawToTifGenerator(cimg, config):
     dcraw_cmd = ['dcraw', '-T']
-    glob_for_files = '*.tiff'
-    RawtoImgGenerator(config, dcraw_cmd, glob_for_files)
+    files = '*.tiff'
+    RawtoImgGenerator(config, dcraw_cmd, files, '.tiff')
 
 
 class HDRGenerator():

@@ -65,15 +65,13 @@ def process_dirs(config_parser, pos_args):
 
 
 def GenerateHDRs(config, directory):
-    symlink = CompositeImage.SymlinkGenerator()
-    ProcessFolder(symlink, config, directory)
-    
-    
     image_ext = config.GetImageExt()
     if image_ext == '.tiff':
-        CompositeImage.RawToTifGenerator(config)
+        generator = CompositeImage.RawToTifGenerator
     if image_ext == '.jpg':
-        CompositeImage.RawToThumbnailGenerator(config)
+        generator = CompositeImage.RawToThumbnailGenerator
+
+    ProcessFolder(generator, config, directory)
         
     hdr_gen = CompositeImage.HDRGenerator()
     ProcessFolder(hdr_gen, config, directory)        
@@ -86,7 +84,6 @@ outdir, indir = process_dirs(config_parser, pos_args)
 
 seq_parser_config, seq_generator = process_seq_type(config_parser, config, outdir)
 
-collect_seq_strategy = CompositeImage.CollectSeqStrategy()
 
 if config.generate:
     cmd = seq_generator
