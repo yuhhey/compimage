@@ -74,7 +74,7 @@ def GenerateHDRs(config, directory):
     image_ext = config.GetImageExt()
     if image_ext == '.tiff':
         generator = CompositeImage.RawToTifGenerator
-    if image_ext == '.jpg':
+    if image_ext == '.thumb.jpg':
         generator = CompositeImage.RawToThumbnailGenerator
 
     ProcessFolder(generator, config, directory)
@@ -96,7 +96,7 @@ if config.generate:
     if config.use_tiff:
         seq_parser_config.SetImageExt('.tiff')
     else:
-        seq_parser_config.SetImageExt('.jpg')
+        seq_parser_config.SetImageExt('.thumb.jpg')
         
 else:
     cmd = CompositeImage.SymlinkGenerator()

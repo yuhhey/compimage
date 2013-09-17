@@ -502,7 +502,7 @@ def RawtoImgGenerator(config, dcraw_cmd, cimg, file_ext):
     # dcraw save the output into the folder of the input file.
     # We need to copy it to the target
     
-    img_files = [os.path.splitext(f)[0]+file_ext for f in files]
+    img_files = [os.path.join(config.GetRawDir(), os.path.splitext(config.GetBasename(f))[0]+file_ext) for f in files]
     
     mv_cmd = ['mv'] + img_files + [config.GetImgDir()]
     
@@ -512,7 +512,7 @@ def RawtoImgGenerator(config, dcraw_cmd, cimg, file_ext):
 def RawToThumbnailGenerator(cimg, config):    
     dcraw_cmd = ['dcraw', '-e']
     
-    RawtoImgGenerator(config, dcraw_cmd, cimg, '.jpg')
+    RawtoImgGenerator(config, dcraw_cmd, cimg, '.thumb.jpg')
 
     
 def RawToTifGenerator(cimg, config):
