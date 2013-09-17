@@ -13,6 +13,7 @@ def ProcessCImgList(cmd, seq_parser_config, img_seqs):
         cmd(cimg, seq_config)
 
 def ProcessFolder(cmd, seq_parser_config, directory):
+    collect_seq_strategy = CompositeImage.CollectSeqStrategy()
     img_seqs, single_imgs = collect_seq_strategy.parseDir(directory, seq_parser_config)
     ProcessCImgList(cmd, seq_parser_config, img_seqs)
 
