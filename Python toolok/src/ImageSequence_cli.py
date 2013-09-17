@@ -66,6 +66,11 @@ def process_dirs(config_parser, pos_args):
 
 
 def GenerateHDRs(config, directory):
+    
+    symlink = CompositeImage.SymlinkGenerator()
+    
+    ProcessFolder(symlink, config, directory)
+    
     image_ext = config.GetImageExt()
     if image_ext == '.tiff':
         generator = CompositeImage.RawToTifGenerator
@@ -101,4 +106,4 @@ if config.recursive:
         print "Processing %s" % p
         ProcessFolder(cmd, seq_parser_config, p)
 else:
-    ProcessFolder(cmd, seq_parser_config, indir)
+    seq_generator(seq_parser_config, indir)
