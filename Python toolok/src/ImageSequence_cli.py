@@ -51,7 +51,7 @@ def process_seq_type(config_parser, config, outdir):
                                              config.img_ext,
                                              config.img_prefix)
         seq_gen = confs[config.seq_type][1]
-        return seq_conf, seq_gen()
+        return seq_conf, seq_gen
     else:
         config_parser.error("Unknown sequence type %s" % config.seq_type) #Process stops here due to error
 
