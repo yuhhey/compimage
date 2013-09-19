@@ -2,6 +2,10 @@ fotoworkflow
 ============
 
 Composite image handling library
+--------------------------------
+
+Automate the identification and generation of composite images such as HDR,
+panorama images.
 
 Prerequisites
 -------------
@@ -15,10 +19,12 @@ Tools
 - dcraw
 
 Installation
+------------
 To be implemented
 
 
 Documentation
+-------------
 
 This library helps with the workflow of handling images created using more than one photo taken. I call them composite image as the final output is composed of several images.
 
@@ -27,3 +33,5 @@ It can be used to identify image sequences that belong to one composite image. B
 The following image sequences are supported
 - HDR
 - Panorama
+
+
