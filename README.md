@@ -4,6 +4,7 @@ fotoworkflow
 Composite image handling library
 
 Prerequisites
+-------------
 
 Python modules beyond a usual python installation: pyexiv2, hsi (Hugin Scripting interface)
 
@@ -17,7 +18,7 @@ Installation
 To be implemented
 
 
-Detailed description
+Documentation
 
 This library helps with the workflow of handling images created using more than one photo taken. I call them composite image as the final output is composed of several images.
 
