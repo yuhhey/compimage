@@ -6,7 +6,7 @@ import panorama
 import random
 import mock
 import hsi
-import raw_data
+import panorama_raw_data
 
 
 class hsiPanoramaMock(mock.MagicMock):
@@ -54,7 +54,7 @@ class kiegFunkTeszt(unittest.TestCase):
         result = panorama.listKeys(adict)
         self.assertNotEqual(result, e_result, 'Extra 13')
         
-@unittest.skip("Sokat szemetel a consolre")
+@unittest.skip("Sokat szemetel a consolra")
 class TeljesPanoramaTest(unittest.TestCase):
     def setUp(self):
         self.tp = panorama.TeljesPanorama()
@@ -188,27 +188,28 @@ def getPitch(img):
 def getYaw(img):
     return img.getYaw()
 
-def getNrOfImages(pano):
-    return len(raw_data.Wandafele_ejszaka_8bit)
-
-def getImage(pano, index):
-    return raw_data.Wandafele_ejszaka_8bit[index]
 
 class Wandafele_ejszaka_8bit(unittest.TestCase):
     
+    def getNrOfImages(pano):
+        return len(panorama_raw_data.pto_2011_06_23_Wandafele_ejszaka_8bit)
+
+    def getImage(pano, index):
+        return panorama_raw_data.pto_2011_06_23_Wandafele_ejszaka_8bit[index]
+    
     def setUp(self):
         self.fn = "../test_input/2011_06_23_Wandafele_ejszaka_8bit.pto"
-        
+
     @mock.patch.object(hsi.SrcPanoImage, 'getPitch')
     @mock.patch.object(hsi.SrcPanoImage, 'getYaw')
-    @mock.patch.object(hsi.Panorama, 'getImage', getImage)
-    @mock.patch.object(hsi.Panorama, 'getNrOfImages', getNrOfImages)
+    @mock.patch.object(hsi.Panorama, 'getImage', self.getImage)
+    @mock.patch.object(hsi.Panorama, 'getNrOfImages', self.getNrOfImages)
     def test_WandaPlaza(self, mock_y, mock_p):
-        mock_y.side_effect = raw_data.Wandafele_ejszaka_8bit_yaw_side_effect        
-        mock_p.side_effect = raw_data.Wandafele_ejszaka_8bit_pitch_side_effect
+        mock_y.side_effect = panorama_raw_data.pto_2011_06_23_Wandafele_ejszaka_8bit_yaw_side_effect        
+        mock_p.side_effect = panorama_raw_data.pto_2011_06_23_Wandafele_ejszaka_8bit_pitch_side_effect
         
         tp = panorama.TeljesPanorama()
-        tp.readPTO(self.fn)
+        #tp.readPTO(self.fn)
         tp.AnalyzePanorama()
         
         self.assertEqual(4, len(tp.pitchBucket), "Not 4 rows")
@@ -302,17 +303,8 @@ def suite(testKiegFunk=False, testTeljesPanorama=False):
 
 if __name__ == '__main__':
     lg = ListGrids()
-    result = inspect.getmembers(raw_data)
+    result = inspect.getmembers(panorama_raw_data)
     for m in result:
         if (-1 == m[0].find("side_effect")) and (m[0].find("pto_") == 0):
             fn = "../test_input/"+m[0][4:]+".pto"
             lg.process(fn)
-    
-    
-    #rd = RealDataTeszt()
-    #rd.test_WandaPlaza()
-#     runner = unittest.TextTestRunner(verbosity=2)
-#     test_suite=suite(testKiegFunk = True,
-#                      testTeljesPanorama = True)
-#     
-#     runner.run(test_suite)
