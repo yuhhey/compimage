@@ -593,7 +593,7 @@ class TreeCtrlWithImages(wx.gizmos.TreeListCtrl):
             raise TypeError # TODO ehelyett value error kellene
         self.process_idx = self.process_idx + 1
         self.processedItems[self.process_idx] = item
-        self.SetItemImage(item, self.imgs_wip[0],wx.TreeItemIcon_Normal)
+        #self.SetItemImage(item, self.imgs_wip[0],wx.TreeItemIcon_Normal)
         self.timer.Start(100) #in milliseconds
         return self.process_idx
         
