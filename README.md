@@ -1,4 +1,4 @@
-fotoworkflow
+Compimage
 ============
 
 Composite image(*) handling library

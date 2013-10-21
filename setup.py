@@ -9,7 +9,5 @@ setup(name='CompImg',
       #url='http://pypi.python.org/pypi/TowelStuff/',
       license='LICENSE.txt',
       long_description=open('README.md').read(),
-      install_requires([
-                        "pyexiv2",
-                        "hsi"])
+      install_requires([])
 )
