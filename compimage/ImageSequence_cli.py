@@ -106,4 +106,4 @@ if config.recursive:
         print "Processing %s" % p
         ProcessFolder(cmd, seq_parser_config, p)
 else:
-    seq_generator(seq_parser_config, indir)
+    ProcessFolder(cmd, seq_parser_config, indir)
