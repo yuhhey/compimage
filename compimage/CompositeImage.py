@@ -374,11 +374,23 @@ class Config():
         
     def GetCheckers(self):
         return self._checkers
+    
+    def __str__(self):
+        return "targetDir:%s\n" % self.GetTargetDir() + \
+               "rawExt:%s\n" % self.GetRawExt() + \
+               "imgExt:%s\n" % self.GetImageExt() + \
+               "prefix:%s\n" % self.GetPrefix()
+              
 
+class NamingRules(object):
+    def __init__(self, cfg):
+        self.ResetIndex()
+        self.__cfg = cfg
+     
     def GetImageSubdir(self):
         """ returns the subdir containing the converted images as relative
             path to 'TargetDir"""
-        return self.GetImageExt()[1:]
+        raise NotImplementedError
 
     def GetIndex(self):
         i = self.__index
@@ -389,36 +401,55 @@ class Config():
         self.__index = 0
             
     def GetBasename(self,fn):
+        raise NotImplementedError
+    
+    def ExpandPrefix(self, fn):
+        expanded_prefix = string.Template(self.__cfg._GetPrefix())
+        return expanded_prefix.substitute(dir = os.path.basename(os.path.dirname(fn)))
+    
+    def RawnameToImagename(self, f):
+        raise NotImplementedError
+    
+    
+    # TODO: At kell terni a forras directoryra
+    def GetRawDir(self):
+        raise NotImplementedError
+    
+    def GetImgDir(self):
+        raise NotImplementedError              
+              
+class CR2TIFRules(NamingRules):
+     
+    def GetImageSubdir(self):
+        """ returns the subdir containing the converted images as relative
+            path to 'TargetDir"""
+        return self.__cfg.GetImageExt()[1:]
+            
+    def GetBasename(self,fn):
         bn = os.path.basename(fn)
         dn = os.path.basename(os.path.dirname(fn))
         return dn + '_' + bn
     
     def ExpandPrefix(self, fn):
-        expanded_prefix = string.Template(self._prefix)
+        expanded_prefix = string.Template(self.__cfg._GetPrefix())
         return expanded_prefix.substitute(dir = os.path.basename(os.path.dirname(fn)))
-        
-    def __str__(self):
-        return "targetDir:%s\n" % self.GetTargetDir() + \
-               "rawExt:%s\n" % self.GetRawExt() + \
-               "imgExt:%s\n" % self.GetImageExt() + \
-               "prefix:%s\n" % self.GetPrefix()
     
     def RawnameToImagename(self, f):
         image_subdir = self.GetImageSubdir()
-        img_name = os.path.join(self.GetTargetDir(),
+        img_name = os.path.join(self.__cfg.GetTargetDir(),
                                 image_subdir,
-                                os.path.splitext(self.GetBasename(f))[0]+self.GetImageExt())
+                                os.path.splitext(self.GetBasename(f))[0]+self.__cfg.GetImageExt())
         return img_name
     
     def GetRawDir(self):
-        target_dir = self.GetTargetDir()
-        raw_ext = self.GetRawExt()
+        target_dir = self.__cfg.GetTargetDir()
+        raw_ext = self.__cfg.GetRawExt()
         raw_dir = os.path.join(target_dir, raw_ext[1:])
         return raw_dir
     
     def GetImgDir(self):
-        target_dir = self.GetTargetDir()
-        img_ext = self.GetImageExt()
+        target_dir = self.__cfg.GetTargetDir()
+        img_ext = self.__cfg.GetImageExt()
         img_dir = os.path.join(target_dir, img_ext[1:])
         return img_dir
   
@@ -524,24 +555,31 @@ class HDRGenerator():
     def __init__(self):
         pass    
         
-    def __call__(self, cimg, hdr_config):
+    def PTOFile(self, config, prefix):
+        return os.path.join(config.GetTargetDir(), prefix+".pto")
+        
+    def OutputFile(self, config, prefix):
+        return os.path.join(config.GetTargetDir(), prefix+config.GetImageExt())
+    
+    def __call__(self, cimg, config, naming_rule):
         fl = cimg.getFilelist()
         
-        tif_list = [hdr_config.RawnameToImagename(f) for f in fl]
-        prefix = hdr_config.ExpandPrefix(fl[0])
-        pto_file = os.path.join(hdr_config.GetTargetDir(), prefix+".pto")
+        tif_list = [naming_rule.RawnameToImagename(f) for f in fl]
+        prefix = naming_rule.ExpandPrefix(fl[0])
+        pto_file = self.PTOFile(config, prefix)
         tmp_prefix = 'tmp_' + prefix +'_'
         try:
             align_cmd = ['align_image_stack',
                          '-a%s' % tmp_prefix,
                          '-p%s' % pto_file] + tif_list
             result = subprocess.check_output(align_cmd)
-            output_file = os.path.join(hdr_config.GetTargetDir(), prefix+hdr_config.GetImageExt())
+            
+            output_file = self.OutputFile(config, prefix)
             enfuse_cmd = ['enfuse',
                           '-o%s' % output_file]
-            
             enfuse_cmd = enfuse_cmd + ['%s%04d.tif'%(tmp_prefix, i) for i in range(len(fl))]
             result = subprocess.check_output(enfuse_cmd)
+            
         except subprocess.CalledProcessError as e:
             print e.cmd, e.output
             result = None 
