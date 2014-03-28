@@ -418,6 +418,7 @@ class NamingRules(object):
     def GetImgDir(self):
         raise NotImplementedError              
               
+
 class CR2TIFRules(NamingRules):
      
     def GetImageSubdir(self):
