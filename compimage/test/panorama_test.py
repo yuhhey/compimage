@@ -54,7 +54,7 @@ class kiegFunkTeszt(unittest.TestCase):
         result = panorama.listKeys(adict)
         self.assertNotEqual(result, e_result, 'Extra 13')
         
-@unittest.skip("Sokat szemetel a consolra")
+
 class TeljesPanoramaTest(unittest.TestCase):
     def setUp(self):
         self.tp = panorama.TeljesPanorama()
@@ -77,52 +77,37 @@ class TeljesPanoramaTest(unittest.TestCase):
         oszlopok_ptobol = 19
 
         self.tp.updateSize(0, 0)
-        self.assertEqual(self.tp.sorok, sorok_ptobol,
-                         'sorok - %d vs %d' % (self.tp.sorok, sorok_ptobol))
-        self.assertEqual(self.tp.oszlopok, oszlopok_ptobol,
-                         'oszlopok - %d vs %d' % (self.tp.oszlopok,
+        self.assertEqual(self.tp.n_rows, sorok_ptobol,
+                         'n_rows - %d vs %d' % (self.tp.n_rows, sorok_ptobol))
+        self.assertEqual(self.tp.n_columns, oszlopok_ptobol,
+                         'n_columns - %d vs %d' % (self.tp.n_columns,
                                                   oszlopok_ptobol))
 
         ext_sorok = 12
         self.tp.updateSize(ext_sorok, 0)
-        self.assertEqual(self.tp.sorok, ext_sorok,
-                         'sorok - %d vs %d' % (self.tp.sorok, ext_sorok))
-        self.assertEqual(self.tp.oszlopok, 5,
-                         'oszlopok - %d vs %d' % (self.tp.oszlopok, 5))
+        self.assertEqual(self.tp.n_rows, ext_sorok,
+                         'n_rows - %d vs %d' % (self.tp.n_rows, ext_sorok))
+        self.assertEqual(self.tp.n_columns, 5,
+                         'n_columns - %d vs %d' % (self.tp.n_columns, 5))
 
 
         ext_oszlopok = 21
         self.tp.updateSize(0,ext_oszlopok)
-        self.assertEqual(self.tp.sorok, sorok_ptobol,
-                         'sorok - %d vs %d' % (self.tp.sorok, sorok_ptobol))
-        self.assertEqual(self.tp.oszlopok, ext_oszlopok,
-                         'oszlopok - %d vs %d' % (self.tp.oszlopok,
+        self.assertEqual(self.tp.n_rows, sorok_ptobol,
+                         'n_rows - %d vs %d' % (self.tp.n_rows, sorok_ptobol))
+        self.assertEqual(self.tp.n_columns, ext_oszlopok,
+                         'n_columns - %d vs %d' % (self.tp.n_columns,
                                                   ext_oszlopok))
         
         ext_sorok_kicsi = 8
-        self.tp.updateSize(ext_sorok_kicsi, 0)
-
-    def test_fillBucket(self):
-        self.tp.fillBuckets()
-        e_yawBucket = {-11.2607813519595: [1, 6],
-                       -5.47152753193876: [2, 7],
-                       0.382195302610455: [3, 8],
-                       11.9874309160965: [0, 5, 10],
-                       6.1456880562248: [4, 9]}
-        e_pitchBucket = {0.112122265335545: [1, 2, 3, 4, 5],
-                         3.9245062696787: [0],
-                         -3.54509678790692: [6, 7, 8, 9, 10]}
-
-        self.assertEqual(e_yawBucket, self.tp.yawBucket, 'yaw')
-        self.assertEqual(e_pitchBucket, self.tp.pitchBucket, 'pitch')
-        
+        self.tp.updateSize(ext_sorok_kicsi, 0)        
         
     @unittest.skip("Not implemented")
     def test_GetImageXY(self):
         self.tp.fillBuckets()
         
-        xmax = self.tp.oszlopok
-        ymax = self.tp.sorok
+        xmax = self.tp.n_columns
+        ymax = self.tp.n_rows
         
         valid_idx = (1,1)
         outsidey_idx = (1,-1)
@@ -137,6 +122,37 @@ class TeljesPanoramaTest(unittest.TestCase):
         
         out_fajl_lst.self.tp.removeFilesInPanorama(in_fajl_lst)
 
+
+    def __genParam(self, epsilon):
+        params = []
+        for i in range(0, 25, 5):
+            for f in range(10):
+                r = i + random.random() * (epsilon - 0.01)
+                params = params + (i + r)
+        
+        random.shuffle(params)
+        return params
+
+    def test_fillbucketWithList(self):
+        epsilon = 1.5
+        params = self.__genParam(epsilon)
+        bucket = {}
+        self.tp.fillBucket(bucket, params, epsilon)
+        
+        self.assertEqual(len(bucket), 4, "fillbucket with list bucket error")
+    
+    def test_fillbucketWithIterator(self):
+        epsilon = 1.5
+        param_iter = range(10)
+        bucket = {}
+        self.tp.fillBucket(bucket, param_iter, epsilon)
+        
+    def test_fillbucketWithGenerator(self):
+        epsilon = 1.5
+        param_gen = 12
+        bucket = {}
+        self.tp.fillBucket(bucket, param_gen, epsilon)
+        
 @unittest.skip("Szomszed testing skipped")
 class SzomszedTeszt(unittest.TestCase):
     def setUp(self):
@@ -188,7 +204,7 @@ def getPitch(img):
 def getYaw(img):
     return img.getYaw()
 
-
+@unittest.skip("Wandafele_ejszaka_8bit skipped")
 class Wandafele_ejszaka_8bit(unittest.TestCase):
     
     def getNrOfImages(pano):
@@ -200,10 +216,10 @@ class Wandafele_ejszaka_8bit(unittest.TestCase):
     def setUp(self):
         self.fn = "../test_input/2011_06_23_Wandafele_ejszaka_8bit.pto"
 
-    @mock.patch.object(hsi.SrcPanoImage, 'getPitch')
-    @mock.patch.object(hsi.SrcPanoImage, 'getYaw')
-    @mock.patch.object(hsi.Panorama, 'getImage', self.getImage)
-    @mock.patch.object(hsi.Panorama, 'getNrOfImages', self.getNrOfImages)
+#    @mock.patch.object(hsi.SrcPanoImage, 'getPitch')
+#    @mock.patch.object(hsi.SrcPanoImage, 'getYaw')
+#    @mock.patch.object(hsi.Panorama, 'getImage', self.getImage)
+#    @mock.patch.object(hsi.Panorama, 'getNrOfImages', self.getNrOfImages)
     def test_WandaPlaza(self, mock_y, mock_p):
         mock_y.side_effect = panorama_raw_data.pto_2011_06_23_Wandafele_ejszaka_8bit_yaw_side_effect        
         mock_p.side_effect = panorama_raw_data.pto_2011_06_23_Wandafele_ejszaka_8bit_pitch_side_effect
